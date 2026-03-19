@@ -1,7 +1,7 @@
 import type { DetailResponse, UIAction } from '@/lib/protocol'
+import { resolveRenderer } from '@/components/renderer-registry'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { ProtocolRenderer } from '@/components/protocol-renderer'
 import { useMediaQuery } from '@/hooks/use-media-query'
 
 type DetailPanelProps = {
@@ -31,12 +31,17 @@ function DetailBody({ detail, onAction }: { detail: DetailResponse | null; onAct
       <ScrollArea className="mt-3 h-full">
         <div className="space-y-3 pb-4">
           {detail.ui_schema.map((component) => (
-            <ProtocolRenderer key={component.component_id} component={component} onAction={onAction} />
+            <DetailRenderer key={component.component_id} component={component} onAction={onAction} />
           ))}
         </div>
       </ScrollArea>
     </div>
   )
+}
+
+function DetailRenderer({ component, onAction }: { component: DetailResponse['ui_schema'][number]; onAction: (action: UIAction) => void }) {
+  const Renderer = resolveRenderer(component.component_type)
+  return <Renderer component={component} onAction={onAction} />
 }
 
 export function DetailPanel({ detail, open, onOpenChange, onAction }: DetailPanelProps) {

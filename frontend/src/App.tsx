@@ -2,16 +2,17 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, Route, Routes } from 'react-router-dom'
 import { BotMessageSquare, LoaderCircle, SendHorizontal } from 'lucide-react'
 
-import { getBootstrap, getCustomerDetail, getExplain, getProductDetail, getTaskDetail, sendChat, completeTask } from '@/lib/api'
-import type { BootstrapResponse, ChatMessage, DetailResponse, ExplainResponse, UIAction } from '@/lib/protocol'
-import { ProtocolRenderer } from '@/components/protocol-renderer'
+import { getBootstrap, getExplain, sendChat } from '@/lib/api'
 import { DetailPanel } from '@/components/detail-panel'
+import { resolveRenderer } from '@/components/renderer-registry'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
+import { dispatchAction } from '@/lib/action-registry'
+import type { BootstrapResponse, ChatMessage, DetailResponse, ExplainResponse, TaskCompleteResponse, UIAction } from '@/lib/protocol'
 import { cn } from '@/lib/utils'
 import { useMediaQuery } from '@/hooks/use-media-query'
 
@@ -36,11 +37,16 @@ function MessageBubble({ message, onAction }: { message: ChatMessage; onAction: 
           {message.text}
         </div>
         {message.ui_schema.map((component) => (
-          <ProtocolRenderer key={component.component_id} component={component} onAction={onAction} />
+          <MessageRenderer key={component.component_id} component={component} onAction={onAction} />
         ))}
       </div>
     </div>
   )
+}
+
+function MessageRenderer({ component, onAction }: { component: ChatMessage['ui_schema'][number]; onAction: (action: UIAction) => void }) {
+  const Renderer = resolveRenderer(component.component_type)
+  return <Renderer component={component} onAction={onAction} />
 }
 
 function ExplainPage() {
@@ -107,6 +113,44 @@ function WorkbenchPage() {
 
   const statusText = useMemo(() => (loading ? '处理中' : '可继续提问'), [loading])
 
+  function appendTaskCompletion(payload: TaskCompleteResponse) {
+    setMessages((current) =>
+      current.map((message) => ({
+        ...message,
+        ui_schema: message.ui_schema.map((component) => {
+          if (component.component_type !== 'task_list') {
+            return component
+          }
+
+          const items = (component.props.items as Array<Record<string, unknown>>).map((item) =>
+            String(item.id) === payload.task_id
+              ? { ...item, status: payload.status }
+              : item,
+          )
+
+          return {
+            ...component,
+            props: {
+              ...component.props,
+              items,
+            },
+          }
+        }),
+      })),
+    )
+
+    setMessages((current) => [
+      ...current,
+      {
+        message_id: `assistant-${payload.task_id}`,
+        role: 'assistant',
+        text: payload.message,
+        created_at: new Date().toISOString(),
+        ui_schema: [payload.updated_component],
+      },
+    ])
+  }
+
   async function handleSend(nextValue?: string) {
     const content = (nextValue ?? value).trim()
     if (!content || loading) {
@@ -125,69 +169,11 @@ function WorkbenchPage() {
   }
 
   async function handleAction(action: UIAction) {
-    if (!action.entity_id) {
-      return
-    }
-
-    if (action.action_type === 'open_customer') {
-      const payload = await getCustomerDetail(action.entity_id)
-      setDetail(payload)
-      setDetailOpen(true)
-      return
-    }
-
-    if (action.action_type === 'open_product') {
-      const payload = await getProductDetail(action.entity_id)
-      setDetail(payload)
-      setDetailOpen(true)
-      return
-    }
-
-    if (action.action_type === 'open_task') {
-      const payload = await getTaskDetail(action.entity_id)
-      setDetail(payload)
-      setDetailOpen(true)
-      return
-    }
-
-    if (action.action_type === 'complete_task') {
-      const payload = await completeTask(action.entity_id)
-      setMessages((current) =>
-        current.map((message) => ({
-          ...message,
-          ui_schema: message.ui_schema.map((component) => {
-            if (component.component_type !== 'task_list') {
-              return component
-            }
-
-            const items = (component.props.items as Array<Record<string, unknown>>).map((item) =>
-              String(item.id) === payload.task_id
-                ? { ...item, status: payload.status }
-                : item,
-            )
-
-            return {
-              ...component,
-              props: {
-                ...component.props,
-                items,
-              },
-            }
-          }),
-        })),
-      )
-
-      setMessages((current) => [
-        ...current,
-        {
-          message_id: `assistant-${payload.task_id}`,
-          role: 'assistant',
-          text: payload.message,
-          created_at: new Date().toISOString(),
-          ui_schema: [payload.updated_component],
-        },
-      ])
-    }
+    await dispatchAction(action, {
+      setDetail,
+      setDetailOpen,
+      appendTaskCompletion,
+    })
   }
 
   return (
