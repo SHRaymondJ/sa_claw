@@ -80,8 +80,8 @@ def get_explain_payload() -> ExplainResponse:
             "每次发布前跑 pytest、vitest、vite build、playwright",
         ],
         blockers=[
-            "Pencil 桌面连接仍未恢复，正式 .pen 设计文件尚未产出。",
-            "远端仓库未配置，当前只能本地 commit，无法完成自动 push。",
+            "Pencil 正式导出图已补齐，但原始 .pen 文件还没有固定保存到仓库路径。",
+            "托管远端仓库尚未创建；当前机器具备 GitHub SSH 访问能力，但没有可直接写仓的 API 登录态。",
         ],
         protocol_example={
             "session_id": "s_xxx",

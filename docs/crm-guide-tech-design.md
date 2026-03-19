@@ -153,10 +153,25 @@ React 工作台
 3. 若换成本地图，保持原路径规则或同步更新 seed 数据
 4. 跑页面检查、构建和 E2E，确认没有图片断链
 
-## 7. Pencil 设计前置说明
+## 7. Pencil 设计交付说明
 
-按计划，正式编码前应先完成 Pencil 设计稿；但当前 MCP 无法连接运行中的 Pencil 桌面应用，错误为：
+Pencil 桌面连接已经恢复，本轮已补齐以下正式设计导出图：
 
-`failed to connect to running Pencil app: visual_studio_code`
+- 移动端主工作台
+- 移动端详情抽屉
+- 移动端拒答态
+- PC 端工作台
+- 说明页
 
-因此一期先以设计规格文档和前端实现对齐推进，并将该连接修复作为显式阻塞任务保留。
+导出物位于：
+
+- `designs/pencil-exports/GoEJp.png`
+- `designs/pencil-exports/lJZOy.png`
+- `designs/pencil-exports/LAoMv.png`
+- `designs/pencil-exports/QIctY.png`
+- `designs/pencil-exports/BhEkG.png`
+
+当前仍有一个设计资产层面的已知限制：
+
+- 可以稳定连接、编辑和导出，但 Pencil 临时文档尚未自动落到仓库内固定 `.pen` 文件路径
+- 因此本次交付先以正式导出图和设计索引为准，后续如需把 `.pen` 原文件纳入版本管理，需要在桌面端明确保存路径

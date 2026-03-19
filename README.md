@@ -83,9 +83,13 @@ cd ..
 ./.venv/bin/python -m uvicorn app.main:app --reload --port 8013
 ```
 
+## 设计交付
+
+- 正式 Pencil 导出图见 [designs/README.md](/Users/raymondj/Documents/Raymond/ai-transition-lab/designs/README.md)
+
 ## 注意事项
 
 - `.env`、真实密钥、远端仓库凭据都不得提交
 - 演示数据为脱敏虚构数据
 - 商品图素材必须可替换且来源可追溯
-- Pencil 当前存在桌面连接阻塞，已在任务板中单独记录
+- 当前已补齐 Pencil 导出图，但 `.pen` 原文件仍未纳入固定仓库路径
