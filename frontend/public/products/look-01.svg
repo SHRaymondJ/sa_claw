@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="1200" viewBox="0 0 960 1200" fill="none">
+  <rect width="960" height="1200" fill="#EFE9DE"/>
+  <rect x="74" y="74" width="812" height="1052" fill="#F9F6EE" stroke="#D6CCBD" stroke-width="6"/>
+  <path d="M479 274L608 370L566 926H394L352 370L479 274Z" fill="#1A1814"/>
+  <path d="M393 438H567" stroke="#D2C8B7" stroke-width="6"/>
+  <path d="M393 524H567" stroke="#D2C8B7" stroke-width="6"/>
+  <text x="120" y="1040" fill="#171511" font-size="40" font-family="Arial">LOOK 01 / CITY TAILORING</text>
+</svg>

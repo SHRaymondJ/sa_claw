@@ -1,0 +1,80 @@
+from __future__ import annotations
+
+from typing import Any, Literal, Optional
+
+from pydantic import BaseModel, Field
+
+
+class CRMAction(BaseModel):
+    action_type: str
+    label: str
+    entity_type: str
+    entity_id: Optional[str] = None
+    method: Literal["GET", "POST"] = "GET"
+    variant: Literal["primary", "secondary", "ghost"] = "secondary"
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class CRMComponent(BaseModel):
+    component_type: str
+    component_id: str
+    title: str
+    props: dict[str, Any] = Field(default_factory=dict)
+    actions: list[CRMAction] = Field(default_factory=list)
+
+
+class CRMMessage(BaseModel):
+    message_id: str
+    role: Literal["user", "assistant", "system"]
+    text: str
+    created_at: str
+    ui_schema: list[CRMComponent] = Field(default_factory=list)
+
+
+class CRMChatRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=320)
+    session_id: Optional[str] = None
+
+
+class CRMChatResponse(BaseModel):
+    session_id: str
+    messages: list[CRMMessage]
+    ui_schema: list[CRMComponent]
+    supported_actions: list[str]
+    safety_status: Literal["allowed", "rejected"]
+    context_version: str
+
+
+class EntityDetailResponse(BaseModel):
+    entity_type: Literal["customer", "product", "task"]
+    entity_id: str
+    title: str
+    subtitle: str
+    summary: str
+    ui_schema: list[CRMComponent]
+
+
+class TaskCompleteResponse(BaseModel):
+    task_id: str
+    status: str
+    message: str
+    updated_component: CRMComponent
+
+
+class ExplainSection(BaseModel):
+    key: str
+    title: str
+    points: list[str]
+
+
+class ExplainResponse(BaseModel):
+    title: str
+    sections: list[ExplainSection]
+
+
+class BootstrapResponse(BaseModel):
+    advisor_name: str
+    store_name: str
+    brand_name: str
+    pending_task_count: int
+    quick_prompts: list[str]

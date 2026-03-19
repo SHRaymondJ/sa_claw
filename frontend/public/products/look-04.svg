@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="1200" viewBox="0 0 960 1200" fill="none">
+  <rect width="960" height="1200" fill="#EDE8DE"/>
+  <rect x="74" y="74" width="812" height="1052" fill="#FBF8F1" stroke="#D6CCBD" stroke-width="6"/>
+  <path d="M410 284H550L610 390L550 916H410L350 390L410 284Z" fill="#8B6E55"/>
+  <path d="M410 284V916" stroke="#F3E8D9" stroke-width="8"/>
+  <text x="120" y="1040" fill="#171511" font-size="40" font-family="Arial">LOOK 04 / TRAVEL TRENCH</text>
+</svg>
