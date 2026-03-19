@@ -64,12 +64,19 @@ class TaskCompleteResponse(BaseModel):
 class ExplainSection(BaseModel):
     key: str
     title: str
+    summary: str
     points: list[str]
+    steps: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
 
 
 class ExplainResponse(BaseModel):
     title: str
+    subtitle: str
     sections: list[ExplainSection]
+    maintenance_checklist: list[str]
+    blockers: list[str]
+    protocol_example: dict[str, Any]
 
 
 class BootstrapResponse(BaseModel):

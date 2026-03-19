@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Route, Routes } from 'react-router-dom'
-import { BotMessageSquare, LoaderCircle, SendHorizontal } from 'lucide-react'
+import { BotMessageSquare, Database, GitBranch, LoaderCircle, SendHorizontal, ShieldCheck, Workflow } from 'lucide-react'
 
 import { getBootstrap, getExplain, sendChat } from '@/lib/api'
 import { DetailPanel } from '@/components/detail-panel'
@@ -63,27 +63,121 @@ function ExplainPage() {
           <div>
             <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">解释页</p>
             <h1 className="mt-2 text-2xl font-semibold text-[var(--ink)]">{payload?.title ?? '加载中'}</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">{payload?.subtitle}</p>
           </div>
           <Button asChild>
             <Link to="/">返回工作台</Link>
           </Button>
+        </div>
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardHeader>
+              <Workflow className="h-5 w-5 text-[var(--muted)]" />
+              <CardTitle>协议驱动</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm leading-6 text-[var(--muted)]">
+              后端负责返回协议，前端负责渲染与动作绑定。
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <Database className="h-5 w-5 text-[var(--muted)]" />
+              <CardTitle>实体后链路</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm leading-6 text-[var(--muted)]">
+              卡片点击后进入客户、商品、任务详情与动作接口。
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <ShieldCheck className="h-5 w-5 text-[var(--muted)]" />
+              <CardTitle>边界保护</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm leading-6 text-[var(--muted)]">
+              越界话题先拒答，不进入检索和生成。
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <GitBranch className="h-5 w-5 text-[var(--muted)]" />
+              <CardTitle>维护可持续</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm leading-6 text-[var(--muted)]">
+              页面、组件、协议三层分别治理，不混在一起改。
+            </CardContent>
+          </Card>
         </div>
         <div className="grid gap-4">
           {payload?.sections.map((section) => (
             <Card key={section.key}>
               <CardHeader>
                 <CardTitle>{section.title}</CardTitle>
+                <p className="text-sm leading-6 text-[var(--muted)]">{section.summary}</p>
+                <div className="flex flex-wrap gap-2">
+                  {section.tags.map((tag) => (
+                    <Badge key={tag}>{tag}</Badge>
+                  ))}
+                </div>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {section.points.map((point) => (
-                  <div key={point} className="border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm leading-6 text-[var(--ink)]">
-                    {point}
-                  </div>
-                ))}
+              <CardContent className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-3">
+                  {section.points.map((point) => (
+                    <div key={point} className="border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm leading-6 text-[var(--ink)]">
+                      {point}
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-3 border border-[var(--line)] bg-[var(--paper)] p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">落地流程</p>
+                  {section.steps.map((step, index) => (
+                    <div key={step} className="flex gap-3 text-sm leading-6 text-[var(--ink)]">
+                      <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center border border-[var(--line)] bg-[var(--surface)] text-xs">
+                        {index + 1}
+                      </span>
+                      <span>{step}</span>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           ))}
         </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>协议示例</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <pre className="overflow-x-auto border border-[var(--line)] bg-[var(--surface)] p-4 text-xs leading-6 text-[var(--ink)]">
+                {JSON.stringify(payload?.protocol_example ?? {}, null, 2)}
+              </pre>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>维护清单</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {payload?.maintenance_checklist.map((item) => (
+                <div key={item} className="border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm leading-6 text-[var(--ink)]">
+                  {item}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+        <Card className="border-[var(--warning)] bg-[var(--warning-soft)]">
+          <CardHeader>
+            <CardTitle>当前外部阻塞</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {payload?.blockers.map((item) => (
+              <div key={item} className="border border-[var(--line)] bg-[var(--paper)] px-4 py-3 text-sm leading-6 text-[var(--ink)]">
+                {item}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

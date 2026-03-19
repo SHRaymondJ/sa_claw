@@ -46,12 +46,19 @@ export type BootstrapResponse = {
 export type ExplainSection = {
   key: string
   title: string
+  summary: string
   points: string[]
+  steps: string[]
+  tags: string[]
 }
 
 export type ExplainResponse = {
   title: string
+  subtitle: string
   sections: ExplainSection[]
+  maintenance_checklist: string[]
+  blockers: string[]
+  protocol_example: Record<string, unknown>
 }
 
 export type DetailResponse = {
