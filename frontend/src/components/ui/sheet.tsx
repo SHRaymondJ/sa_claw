@@ -16,17 +16,24 @@ const SheetOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
-    className={cn('fixed inset-0 z-50 bg-black/40 backdrop-blur-[1px]', className)}
+    className={cn(
+      'fixed inset-0 z-50 bg-[rgba(23,18,13,0.42)] backdrop-blur-[3px] data-[state=open]:animate-[fade-in_220ms_ease-out] data-[state=closed]:animate-[fade-out_160ms_ease-in]',
+      className,
+    )}
     {...props}
   />
 ))
 SheetOverlay.displayName = DialogPrimitive.Overlay.displayName
 
-const sheetVariants = cva('fixed z-50 bg-[var(--paper)] border border-[var(--line)] p-0 shadow-[var(--shadow-strong)]', {
+const sheetVariants = cva(
+  'fixed z-50 border border-[var(--line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.62),rgba(255,255,255,0)),var(--paper)] p-0 shadow-[var(--shadow-strong)]',
+  {
   variants: {
     side: {
-      right: 'inset-y-0 right-0 h-full w-[92vw] max-w-[420px]',
-      bottom: 'inset-x-0 bottom-0 h-[80vh] w-full',
+      right:
+        'inset-y-0 right-0 h-full w-[92vw] max-w-[420px] data-[state=open]:animate-[slide-left_260ms_cubic-bezier(0.22,1,0.36,1)] data-[state=closed]:animate-[slide-right_180ms_ease-in]',
+      bottom:
+        'inset-x-0 bottom-0 h-[80vh] w-full data-[state=open]:animate-[slide-up_260ms_cubic-bezier(0.22,1,0.36,1)] data-[state=closed]:animate-[slide-down_180ms_ease-in]',
     },
   },
   defaultVariants: {
