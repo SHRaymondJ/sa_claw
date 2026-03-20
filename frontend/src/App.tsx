@@ -34,7 +34,7 @@ import { useMediaQuery } from '@/hooks/use-media-query'
 const WELCOME_MESSAGE: ChatMessage = {
   message_id: 'system-intro',
   role: 'assistant',
-  text: '欢迎回来。直接输入导购目标，工作台会结合客户、商品、库存和任务，整理可以立即执行的下一步建议。',
+  text: '欢迎回来。直接输入导购目标，工作台会结合客户、商品、库存和任务，整理可直接执行的建议。',
   created_at: new Date().toISOString(),
   ui_schema: [],
 }
@@ -128,6 +128,30 @@ function PendingReplyCard() {
           <div className="skeleton-line h-3 w-20" />
           <div className="mt-4 skeleton-block h-24" />
         </div>
+      </div>
+    </div>
+  )
+}
+
+function MobileQuickPromptRail({
+  prompts,
+  onSelect,
+}: {
+  prompts: string[]
+  onSelect: (prompt: string) => void
+}) {
+  return (
+    <div className="thread-enter space-y-2">
+      <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[var(--muted)]">
+        <Sparkles className="h-3.5 w-3.5" />
+        直接开始
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {prompts.map((prompt) => (
+          <button key={prompt} className="mobile-prompt-chip" onClick={() => onSelect(prompt)}>
+            {prompt}
+          </button>
+        ))}
       </div>
     </div>
   )
@@ -449,7 +473,7 @@ function WorkbenchPage() {
         <main className="relative flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden border-x border-[var(--line)] bg-[var(--paper)] lg:h-[calc(100vh-2.5rem)] lg:min-h-0 lg:border lg:shadow-[var(--shadow-soft)]">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(circle_at_top,rgba(196,180,154,0.32),transparent_62%)]" />
 
-          <header className="relative border-b border-[var(--line)] bg-[linear-gradient(180deg,rgba(250,248,243,0.96),rgba(244,240,231,0.9))] px-4 py-3 backdrop-blur-sm md:px-6 md:py-5">
+          <header className="relative border-b border-[var(--line)] bg-[linear-gradient(180deg,rgba(250,248,243,0.96),rgba(244,240,231,0.9))] px-4 py-2.5 backdrop-blur-sm md:px-6 md:py-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 space-y-2 md:space-y-4">
                 <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-[var(--muted)]">
@@ -457,7 +481,7 @@ function WorkbenchPage() {
                   门店工作台
                 </div>
                 <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                  <h1 className="font-serif-display text-[24px] leading-none text-[var(--ink)] md:text-[36px]">
+                  <h1 className="font-serif-display text-[22px] leading-none text-[var(--ink)] md:text-[36px]">
                     {bootstrap?.brand_name ?? '缦序'} 导购席位
                   </h1>
                   <Badge variant={loading ? 'accent' : 'dark'}>{statusText}</Badge>
@@ -468,8 +492,8 @@ function WorkbenchPage() {
                   {!isDesktop ? <span>{loading ? '正在整理本轮建议' : '可直接继续提问'}</span> : null}
                 </div>
               </div>
-              <Button asChild variant="secondary" size="sm" className="self-start px-3">
-                <Link to="/explain">查看说明</Link>
+              <Button asChild variant="secondary" size="sm" className="self-start px-2.5 text-xs md:px-3">
+                <Link to="/explain">{isDesktop ? '查看说明' : '说明'}</Link>
               </Button>
             </div>
 
@@ -492,37 +516,30 @@ function WorkbenchPage() {
                 </div>
               </div>
             ) : (
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                <div className="compact-stat-card">
-                  <span className="compact-stat-label">待办</span>
-                  <span className="compact-stat-value">{bootstrap?.pending_task_count ?? '--'}</span>
-                </div>
-                <div className="compact-stat-card">
-                  <span className="compact-stat-label">主题</span>
-                  <span className="compact-stat-value">通勤</span>
-                </div>
-                <div className="compact-stat-card">
-                  <span className="compact-stat-label">状态</span>
-                  <span className="compact-stat-value">{loading ? '整理中' : '在线'}</span>
-                </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span className="mobile-summary-pill">待办 {bootstrap?.pending_task_count ?? '--'}</span>
+                <span className="mobile-summary-pill">主题 通勤</span>
+                <span className="mobile-summary-pill">{loading ? '整理中' : '在线'}</span>
               </div>
             )}
           </header>
 
-          <div className="border-b border-[var(--line)] bg-[var(--surface)]/75 px-4 py-2 md:px-6 md:py-3">
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {bootstrap?.quick_prompts.map((prompt, index) => (
-                <button
-                  key={prompt}
-                  className={cn('prompt-chip', index === 0 ? 'prompt-chip-active' : undefined)}
-                  onClick={() => void handleSend(prompt)}
-                >
-                  {isDesktop ? <span className="text-[11px] uppercase tracking-[0.18em] text-[var(--muted)]">快捷场景</span> : null}
-                  <span className="block text-[13px] leading-5 text-[var(--ink)] md:text-sm md:leading-6">{prompt}</span>
-                </button>
-              ))}
+          {isDesktop ? (
+            <div className="border-b border-[var(--line)] bg-[var(--surface)]/75 px-4 py-2 md:px-6 md:py-3">
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {bootstrap?.quick_prompts.map((prompt, index) => (
+                  <button
+                    key={prompt}
+                    className={cn('prompt-chip', index === 0 ? 'prompt-chip-active' : undefined)}
+                    onClick={() => void handleSend(prompt)}
+                  >
+                    <span className="text-[11px] uppercase tracking-[0.18em] text-[var(--muted)]">快捷场景</span>
+                    <span className="block text-[13px] leading-5 text-[var(--ink)] md:text-sm md:leading-6">{prompt}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
 
           <div className="relative min-h-0 flex-1 overflow-hidden">
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-16 bg-[linear-gradient(180deg,rgba(251,248,242,0),rgba(251,248,242,0.94))]" />
@@ -534,6 +551,9 @@ function WorkbenchPage() {
                 {messages.map((message) => (
                   <MessageBubble key={message.message_id} message={message} onAction={handleAction} />
                 ))}
+                {!isDesktop && messages.length === 1 && !loading ? (
+                  <MobileQuickPromptRail prompts={bootstrap?.quick_prompts ?? []} onSelect={(prompt) => void handleSend(prompt)} />
+                ) : null}
                 {loading ? <PendingReplyCard /> : null}
               </div>
             </div>
@@ -541,10 +561,10 @@ function WorkbenchPage() {
 
           <footer
             data-testid="composer-shell"
-            className="z-20 shrink-0 border-t border-[var(--line)] bg-[linear-gradient(180deg,rgba(250,248,243,0.88),rgba(252,251,247,0.98))] px-4 py-2 pb-[calc(env(safe-area-inset-bottom)+8px)] shadow-[0_-12px_28px_rgba(24,18,12,0.08)] backdrop-blur-xl md:px-6 md:py-4"
+            className="z-20 shrink-0 border-t border-[var(--line)] bg-[linear-gradient(180deg,rgba(250,248,243,0.88),rgba(252,251,247,0.98))] px-4 py-2 pb-[calc(env(safe-area-inset-bottom)+6px)] shadow-[0_-12px_28px_rgba(24,18,12,0.08)] backdrop-blur-xl md:px-6 md:py-4"
           >
-            <div className="soft-panel border-[var(--line-strong)] bg-[linear-gradient(180deg,rgba(255,255,255,0.72),rgba(248,244,236,0.94))] p-2.5 md:p-4">
-              <div className="space-y-2 md:space-y-3">
+            <div className="soft-panel border-[var(--line-strong)] bg-[linear-gradient(180deg,rgba(255,255,255,0.72),rgba(248,244,236,0.94))] p-2 md:p-4">
+              <div className="space-y-1.5 md:space-y-3">
                 {isDesktop ? (
                   <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
                     <div>
@@ -578,18 +598,24 @@ function WorkbenchPage() {
                       void handleSend()
                     }
                   }}
-                  className="min-h-[56px] resize-none border-0 bg-transparent px-0 py-0 text-[14px] leading-6 focus:border-0 focus-visible:ring-0 md:min-h-[104px] md:text-[15px] md:leading-7"
+                  className="min-h-[42px] max-h-[96px] resize-none border-0 bg-transparent px-0 py-0 text-[14px] leading-5 focus:border-0 focus-visible:ring-0 md:min-h-[104px] md:max-h-none md:text-[15px] md:leading-7"
                   placeholder="例如：帮我找今天该优先跟进但还没联系的高净值客户"
                 />
-                <div className="flex items-center justify-between gap-3 border-t border-[var(--line)] pt-2.5 md:gap-4 md:pt-3">
-                  <p className="text-[11px] leading-5 text-[var(--muted)] md:text-xs">
+                <div className="flex items-center justify-between gap-3 border-t border-[var(--line)] pt-2 md:gap-4 md:pt-3">
+                  <p className="text-[10px] leading-4 text-[var(--muted)] md:text-xs md:leading-5">
                     {isDesktop
                       ? '当前为演示数据环境，客户、商品和任务均为脱敏虚构数据。'
-                      : 'Enter 发送，Shift+Enter 换行'}
+                      : 'Enter 发送'}
                   </p>
-                  <Button variant="primary" onClick={() => void handleSend()} disabled={loading}>
+                  <Button
+                    variant="primary"
+                    onClick={() => void handleSend()}
+                    disabled={loading}
+                    className="h-9 min-w-9 px-3 md:h-10 md:px-4"
+                    aria-label="发送"
+                  >
                     {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <SendHorizontal className="h-4 w-4" />}
-                    发送
+                    {isDesktop ? '发送' : null}
                   </Button>
                 </div>
               </div>

@@ -141,30 +141,41 @@ img {
   box-shadow: var(--shadow-soft);
 }
 
-.compact-stat-card {
+.mobile-summary-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
   border: 1px solid var(--line);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0)),
-    rgba(251, 248, 242, 0.9);
-  padding: 10px 12px;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0)),
+    rgba(251, 248, 242, 0.88);
+  padding: 0 10px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
   box-shadow: var(--shadow-soft);
 }
 
-.compact-stat-label {
-  display: block;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: var(--muted);
+.mobile-prompt-chip {
+  min-height: 66px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0)),
+    var(--paper);
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink);
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease;
 }
 
-.compact-stat-value {
-  display: block;
-  margin-top: 8px;
-  font-family: "Noto Serif SC", serif;
-  font-size: 18px;
-  line-height: 1;
-  color: var(--ink);
+.mobile-prompt-chip:active {
+  transform: scale(0.985);
+  background: var(--surface);
 }
 
 .hero-stat-label {
