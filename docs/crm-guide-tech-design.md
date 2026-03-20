@@ -97,6 +97,11 @@ React 工作台
   - `last_entity_ids`
   - `handoff_reason`
   - `working_memory_summary`
+- `visible_entity_contract`：凡是当前轮真实展示给用户的商品、任务实体，都必须与：
+  - `focus_scope.product_ids / task_ids`
+  - `session_snapshot.last_entity_ids`
+  - 响应 meta 中的最终实体集合
+  保持一致，禁止前端展示 6 条而状态层只记前 4 条的隐式截断
 
 ### 3.6 多轮状态机
 
@@ -115,6 +120,7 @@ React 工作台
   - 用户命名新客户时立刻切换焦点
   - 用户从客户问题切到任务问题时默认清空客户焦点
 - 缓存键必须带上会话模式和工作记忆摘要，避免不同阶段误命中旧响应
+- 同一轮如果前端可见实体数量发生变化，会话状态、缓存写入和响应 meta 必须同步使用“当前可见实体集合”，不能各自再做二次切片
 
 ### 3.7 响应形态约束表
 
@@ -142,6 +148,9 @@ React 工作台
   - `CRM_CUSTOMER_SAMPLE_LIMIT`
   - `CRM_RELATIONSHIP_PRODUCT_LIMIT`
   - `CRM_QUICK_PROMPTS`
+- 当前已完成第二批清理：
+  - 商品推荐和任务结果的内部状态不再固定截断为 `4`
+  - 前端测试与 E2E 已移除把 demo 数字当作协议契约的断言
 
 ### 3.8 分层记忆治理
 

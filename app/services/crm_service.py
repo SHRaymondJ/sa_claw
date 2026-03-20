@@ -1063,11 +1063,21 @@ def _resolve_conversation_mode(question_type: str) -> str:
     return QUESTION_TYPE_TO_CONVERSATION_MODE[question_type]
 
 
+def _get_visible_products(products: list[dict], guardrail, settings) -> list[dict]:
+    if guardrail.intent == "relationship_maintenance":
+        return products[: settings.relationship_product_limit]
+    return products[: guardrail.requested_count]
+
+
+def _get_visible_tasks(tasks: list[dict], guardrail) -> list[dict]:
+    return tasks[: guardrail.requested_count]
+
+
 def _build_focus_scope(focus_customer: dict | None, products: list[dict], tasks: list[dict]) -> dict:
     return {
         "customer_id": focus_customer["id"] if focus_customer else "",
-        "product_ids": [item["id"] for item in products[:4]],
-        "task_ids": [str(item["id"]) for item in tasks[:4]],
+        "product_ids": [item["id"] for item in products],
+        "task_ids": [str(item["id"]) for item in tasks],
     }
 
 
@@ -1387,6 +1397,8 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
             else []
         )
         tasks = _query_tasks(connection, limit=guardrail.requested_count if effective_query_tasks else 0) if effective_query_tasks else []
+        visible_products = _get_visible_products(products, guardrail, settings)
+        visible_tasks = _get_visible_tasks(tasks, guardrail)
         workflow = resolve_workflow(
             intent=guardrail.intent,
             message=route_message,
@@ -1426,7 +1438,7 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
             tasks=tasks,
         )
         conversation_mode = _resolve_conversation_mode(decision.question_type)
-        focus_scope = _build_focus_scope(focus_customer, products, tasks)
+        focus_scope = _build_focus_scope(focus_customer, visible_products, visible_tasks)
         handoff_reason = _build_handoff_reason(
             current_state,
             decision.question_type,
@@ -1494,8 +1506,8 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
                         workflow=workflow,
                         user_goal=route_message,
                         focus_customer=focus_customer,
-                        products=products[:4],
-                        tasks=tasks[:4],
+                        products=visible_products,
+                        tasks=visible_tasks,
                         memory_bundle=memory_bundle,
                     )
                 )
@@ -1536,7 +1548,7 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
                         user_goal=route_message,
                         focus_customer=None,
                         products=[],
-                        tasks=tasks[:4],
+                        tasks=visible_tasks,
                         memory_bundle={},
                     )
         )
@@ -1611,15 +1623,7 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
                         if focus_customer
                         else "可直接推荐的门店单品" if not guardrail.season_hint else f"{guardrail.season_hint}可优先推荐的门店单品"
                     ),
-                    props={
-                        "items": products[
-                            : (
-                                settings.relationship_product_limit
-                                if guardrail.intent == "relationship_maintenance"
-                                else guardrail.requested_count
-                            )
-                        ]
-                    },
+                    props={"items": visible_products},
                 )
             )
         if decision.question_type in {"task_management", "task_management_with_trace"}:
@@ -1628,7 +1632,7 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
                     component_type="task_list",
                     component_id=f"tasks-{uuid.uuid4().hex[:8]}",
                     title="待处理任务",
-                    props={"items": tasks[: guardrail.requested_count]},
+                    props={"items": visible_tasks},
                 )
             )
 
@@ -1843,8 +1847,8 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
             active_customer_id=focus_customer["id"] if focus_customer else resolved_context.active_customer_id,
             active_customer_name=focus_customer["name"] if focus_customer else resolved_context.active_customer_name,
             active_intent=guardrail.intent,
-            active_product_ids=[item["id"] for item in products[:4]],
-            active_task_ids=[str(item["id"]) for item in tasks[:4]],
+            active_product_ids=[item["id"] for item in visible_products],
+            active_task_ids=[str(item["id"]) for item in visible_tasks],
             last_style_focus=style_focus,
             resolution_confidence=resolved_context.resolution_confidence,
             workflow_name=workflow.workflow_name,
@@ -1854,9 +1858,9 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
             last_entity_ids=_dedupe_preserve_order(
                 [
                     *( [focus_customer["id"]] if focus_customer else [] ),
-                    *[item["id"] for item in customer_candidates[:4]],
-                    *[item["id"] for item in products[:4]],
-                    *[str(item["id"]) for item in tasks[:4]],
+                    *[item["id"] for item in customer_candidates],
+                    *[item["id"] for item in visible_products],
+                    *[str(item["id"]) for item in visible_tasks],
                 ]
             ),
             conversation_mode=conversation_mode,
@@ -1870,11 +1874,11 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
     if "focus_customer" in locals() and focus_customer:
         final_entity_ids.append(focus_customer["id"])
     if "customer_candidates" in locals():
-        final_entity_ids.extend(item["id"] for item in customer_candidates[:4])
-    if "products" in locals():
-        final_entity_ids.extend(item["id"] for item in products[:4])
-    if "tasks" in locals():
-        final_entity_ids.extend(str(item["id"]) for item in tasks[:4])
+        final_entity_ids.extend(item["id"] for item in customer_candidates)
+    if "visible_products" in locals():
+        final_entity_ids.extend(item["id"] for item in visible_products)
+    if "visible_tasks" in locals():
+        final_entity_ids.extend(str(item["id"]) for item in visible_tasks)
 
     final_cache_key = _build_cache_key(
         current_session_id,

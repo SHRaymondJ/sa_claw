@@ -444,6 +444,44 @@ def test_relationship_maintenance_uses_customer_memory_and_session_context() -> 
     assert "客户清单" not in [item["component_type"] for item in follow_up["ui_schema"]]
 
 
+def test_relationship_maintenance_snapshot_matches_visible_product_count() -> None:
+    RESPONSE_CACHE.clear()
+
+    response = client.post(
+        "/api/crm/chat/send",
+        json={"message": "我要维护一下乔安禾的客户关系"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+
+    product_component = next(component for component in payload["ui_schema"] if component["component_type"] == "product_grid")
+    visible_ids = [item["id"] for item in product_component["props"]["items"]]
+
+    assert payload["meta"]["focus_scope"]["product_ids"] == visible_ids
+    assert payload["meta"]["session_snapshot"]["last_entity_ids"][: 1 + len(visible_ids)] == [
+        payload["ui_schema"][0]["props"]["item"]["id"],
+        *visible_ids,
+    ]
+
+
+def test_product_recommendation_snapshot_tracks_all_visible_products() -> None:
+    RESPONSE_CACHE.clear()
+
+    response = client.post(
+        "/api/crm/chat/send",
+        json={"message": "找6件适合夏天穿的衣服"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+
+    product_component = next(component for component in payload["ui_schema"] if component["component_type"] == "product_grid")
+    visible_ids = [item["id"] for item in product_component["props"]["items"]]
+
+    assert len(visible_ids) == 6
+    assert payload["meta"]["focus_scope"]["product_ids"] == visible_ids
+    assert payload["meta"]["session_snapshot"]["last_entity_ids"] == visible_ids
+
+
 def test_rejection_flow() -> None:
     response = client.post("/api/crm/chat/send", json={"message": "说说优衣库和政治新闻"})
     assert response.status_code == 200

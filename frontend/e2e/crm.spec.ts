@@ -40,7 +40,7 @@ test('distinguishes customer inventory and category inventory queries', async ({
   await page.getByRole('textbox').fill('现在有哪些客户')
   await page.getByTestId('composer-shell').getByRole('button', { name: '发送' }).click()
   await expect(page.getByRole('heading', { name: '客户池概览' })).toBeVisible()
-  await expect(page.getByText('当前先展示 4 位代表客户')).toBeVisible()
+  await expect(page.getByText(/当前先展示 \d+ 位代表客户/)).toBeVisible()
   await expect(page.getByRole('heading', { name: '建议优先跟进客户' })).toBeVisible()
 
   await page.getByRole('textbox').fill('现在有哪些品类')

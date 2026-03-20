@@ -12,7 +12,7 @@ describe('ProtocolRenderer', () => {
           title: '门店客户概览',
           props: {
             total_customers: 360,
-            sample_limit: 4,
+            sample_limit: 6,
             tier_breakdown: [
               { tier: '高净值', count: 52 },
               { tier: '高潜', count: 118 },
@@ -26,7 +26,7 @@ describe('ProtocolRenderer', () => {
 
     expect(screen.getByText('客户总量')).toBeInTheDocument()
     expect(screen.getByText('360')).toBeInTheDocument()
-    expect(screen.getByText('当前先展示 4 位代表客户')).toBeInTheDocument()
+    expect(screen.getByText('当前先展示 6 位代表客户')).toBeInTheDocument()
     expect(screen.getByText('高净值 52')).toBeInTheDocument()
   })
 
