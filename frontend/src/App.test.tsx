@@ -88,6 +88,31 @@ describe('App', () => {
     expect(screen.getByTestId('composer-shell')).toBeVisible()
   })
 
+  it('does not fabricate demo brand or advisor labels when bootstrap fields are missing', async () => {
+    vi.mocked(getBootstrap).mockResolvedValueOnce({
+      advisor_id: 'advisor-demo-001',
+      advisor_name: '',
+      store_id: 'store-sh-jingan',
+      store_name: '',
+      brand_name: '',
+      pending_task_count: 0,
+      quick_prompts: ['帮我找重点客户'],
+    })
+
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('导购席位')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('缦序 导购席位')).not.toBeInTheDocument()
+    expect(screen.queryByText(/林顾问/)).not.toBeInTheDocument()
+    expect(screen.getByText(/信息待同步/)).toBeInTheDocument()
+  })
+
   it('shows a pending response shell while sending a message', async () => {
     const user = userEvent.setup()
     let resolveChat: undefined | ((value: {

@@ -99,6 +99,34 @@ function buildActionResultComponent({
   }
 }
 
+function normalizeDisplayText(value: string | null | undefined) {
+  const compact = value?.trim() ?? ''
+  return compact.length > 0 ? compact : ''
+}
+
+function joinMetaParts(parts: Array<string | null | undefined>) {
+  return parts.filter((part): part is string => Boolean(part && part.trim())).join(' · ')
+}
+
+function getWorkbenchTitle(bootstrap: BootstrapResponse | null) {
+  const brandName = normalizeDisplayText(bootstrap?.brand_name)
+  return brandName ? `${brandName} 导购席位` : '导购席位'
+}
+
+function getWorkbenchMetaLine(bootstrap: BootstrapResponse | null, isDesktop: boolean) {
+  const advisorName = normalizeDisplayText(bootstrap?.advisor_name) || '顾问信息待同步'
+  const rawStoreName = normalizeDisplayText(bootstrap?.store_name)
+  const storeName = rawStoreName
+    ? isDesktop
+      ? rawStoreName
+      : rawStoreName.replace(/^上海/, '') || rawStoreName
+    : '门店信息待同步'
+  const pendingTaskCount =
+    typeof bootstrap?.pending_task_count === 'number' ? String(bootstrap.pending_task_count) : '--'
+
+  return joinMetaParts([advisorName, storeName, `${isDesktop ? '今日待办' : '待办'} ${pendingTaskCount}`])
+}
+
 function BootstrapShell() {
   return (
     <div className="flex min-h-screen flex-col border-x border-[var(--line)] bg-[var(--paper)]">
@@ -805,9 +833,9 @@ function WorkbenchPage() {
     return <BootstrapShell />
   }
 
-  const compactMeta = `${bootstrap?.advisor_name ?? '林顾问'} · ${bootstrap?.store_name ?? '上海静安店'}`
-  const compactMetaLine = `${bootstrap?.advisor_name ?? '林顾问'} · ${(bootstrap?.store_name ?? '上海静安店').replace('上海', '')} · 待办 ${bootstrap?.pending_task_count ?? '--'}`
-  const desktopMetaLine = `${compactMeta} · 今日待办 ${bootstrap?.pending_task_count ?? '--'}`
+  const workbenchTitle = getWorkbenchTitle(bootstrap)
+  const compactMetaLine = getWorkbenchMetaLine(bootstrap, false)
+  const desktopMetaLine = getWorkbenchMetaLine(bootstrap, true)
   const showEmptyState = messages.length === 1 && !loading
 
   async function openDefaultCustomerPreview() {
@@ -827,7 +855,7 @@ function WorkbenchPage() {
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <h1 className="truncate font-serif-display text-[17px] leading-none text-[var(--ink)] md:text-[19px]">
-                    {bootstrap?.brand_name ?? '缦序'} 导购席位
+                    {workbenchTitle}
                   </h1>
                   <Badge variant="dark" className="shrink-0">
                     在线
