@@ -1,7 +1,12 @@
+import os
+
 from fastapi.testclient import TestClient
 
 from app.main import app
 
+
+os.environ["MODEL_PROVIDER"] = "mock"
+os.environ["MODEL_API_KEY"] = ""
 
 client = TestClient(app)
 
@@ -29,6 +34,19 @@ def test_bootstrap_and_chat_flow() -> None:
     component_types = [component["component_type"] for component in data["ui_schema"]]
     assert "customer_list" in component_types
     assert "message_draft" in component_types
+
+
+def test_semantic_product_query_flow() -> None:
+    chat_response = client.post(
+        "/api/crm/chat/send",
+        json={"message": "找5件适合夏天穿的衣服"},
+    )
+    assert chat_response.status_code == 200
+    data = chat_response.json()
+    assert data["safety_status"] == "allowed"
+    product_component = next(component for component in data["ui_schema"] if component["component_type"] == "product_grid")
+    assert len(product_component["props"]["items"]) == 5
+    assert "夏天" in product_component["title"]
 
 
 def test_rejection_flow() -> None:

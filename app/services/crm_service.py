@@ -116,29 +116,59 @@ def _query_customer_candidates(connection, message: str, limit: int = 4) -> list
     return candidates
 
 
-def _query_products(connection, message: str, limit: int = 4) -> list[dict]:
-    category_match = None
-    for category in ["西装", "衬衫", "针织", "风衣", "半裙", "连衣裙", "牛仔", "外套"]:
-        if category in message:
-            category_match = category
-            break
-
-    sql = """
+def _query_products(
+    connection,
+    message: str,
+    limit: int = 4,
+    *,
+    category_hint: str = "",
+    season_hint: str = "",
+    query_terms: list[str] | None = None,
+) -> list[dict]:
+    rows = connection.execute(
+        """
         SELECT p.*, i.availability, i.store_stock, i.warehouse_stock
         FROM products p
         JOIN inventory i ON i.product_id = p.id
         WHERE i.store_stock > 0
-    """
-    params: list[str] = []
-    if category_match:
-        sql += " AND p.category = ?"
-        params.append(category_match)
-    sql += " ORDER BY i.store_stock DESC, p.price DESC LIMIT ?"
-    params.append(str(limit))
-    rows = connection.execute(sql, tuple(params)).fetchall()
-    items = []
+        """
+    ).fetchall()
+
+    terms = [term for term in (query_terms or []) if term]
+    ranked: list[tuple[int, dict]] = []
     for row in rows:
         product = dict(row)
+        haystack = " ".join(
+            [
+                product["name"],
+                product["category"],
+                product["subcategory"],
+                product["collection_name"],
+                product["summary"],
+                product["color"],
+                " ".join(json.loads(product["style_tags"])),
+            ]
+        )
+
+        score = product["store_stock"] * 2 + product["warehouse_stock"]
+        if category_hint and product["category"] == category_hint:
+            score += 18
+        if season_hint and season_hint in {"夏天", "春天"} and "春夏" in product["collection_name"]:
+            score += 10
+        if "夏天" in message and any(token in haystack for token in ["春夏", "轻", "通勤"]):
+            score += 8
+
+        for term in terms:
+            if term and term in haystack:
+                score += 6
+
+        if "衣服" in message and product["category"] in {"西装", "衬衫", "针织", "风衣", "半裙", "连衣裙", "牛仔", "外套"}:
+            score += 4
+        ranked.append((score, product))
+
+    ranked.sort(key=lambda item: (item[0], item[1]["price"]), reverse=True)
+    items = []
+    for _, product in ranked[:limit]:
         items.append(
             {
                 "id": product["id"],
@@ -241,18 +271,27 @@ def send_chat(message: str, session_id: str = None) -> CRMChatResponse:
         add_turn(connection, current_session_id, "user", message, message[:80])
         summaries = get_recent_turn_summaries(connection, current_session_id)
 
-        wants_tasks = "任务" in message or "到期" in message
-        wants_products = "商品" in message or "单品" in message or "有货" in message or "推荐" in message
-        customer_candidates = _query_customer_candidates(connection, message)
-        products = _query_products(connection, message) if wants_products or customer_candidates else _query_products(connection, "推荐")
-        tasks = _query_tasks(connection) if wants_tasks or "跟进" in message else _query_tasks(connection, 3)
+        customer_candidates = (
+            _query_customer_candidates(connection, message, limit=guardrail.requested_count)
+            if guardrail.query_customers
+            else []
+        )
+        products = (
+            _query_products(
+                connection,
+                message,
+                limit=guardrail.requested_count,
+                category_hint=guardrail.category_hint,
+                season_hint=guardrail.season_hint,
+                query_terms=guardrail.query_terms or guardrail.style_terms,
+            )
+            if guardrail.query_products or customer_candidates
+            else []
+        )
+        tasks = _query_tasks(connection, limit=guardrail.requested_count if guardrail.query_tasks else 0) if guardrail.query_tasks else []
 
         components: list[CRMComponent] = []
-        intent_label = "客户筛选"
-        if wants_tasks:
-            intent_label = "任务整理"
-        elif wants_products:
-            intent_label = "商品推荐"
+        intent_label = guardrail.intent_label
 
         if customer_candidates:
             components.append(
@@ -269,8 +308,8 @@ def send_chat(message: str, session_id: str = None) -> CRMChatResponse:
                 CRMComponent(
                     component_type="product_grid",
                     component_id=f"products-{uuid.uuid4().hex[:8]}",
-                    title="可直接推荐的门店单品",
-                    props={"items": products[:4]},
+                    title="可直接推荐的门店单品" if not guardrail.season_hint else f"{guardrail.season_hint}可优先推荐的门店单品",
+                    props={"items": products[: guardrail.requested_count]},
                 )
             )
         if tasks:
@@ -279,7 +318,7 @@ def send_chat(message: str, session_id: str = None) -> CRMChatResponse:
                     component_type="task_list",
                     component_id=f"tasks-{uuid.uuid4().hex[:8]}",
                     title="待处理任务",
-                    props={"items": tasks[:5]},
+                    props={"items": tasks[: guardrail.requested_count]},
                 )
             )
 
