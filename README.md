@@ -62,11 +62,29 @@ ai-transition-lab/
 - 真实实体 ID 驱动后链路
 - 敏感信息不入仓库
 
+## 工程流转
+
+- 主分支：`main`
+- 开发集成分支：`develop`
+- 测试回归分支：`test`
+- 功能分支：`codex/v{版本号}-{任务短名}`
+- 发布节奏：`develop -> test -> main`
+
 ## 关键文档
 
 - [PRD](/Users/raymondj/Documents/Raymond/ai-transition-lab/docs/crm-guide-prd.md)
 - [技术设计](/Users/raymondj/Documents/Raymond/ai-transition-lab/docs/crm-guide-tech-design.md)
 - [任务板](/Users/raymondj/Documents/Raymond/ai-transition-lab/docs/crm-guide-task-board.md)
+- [总体路线图](/Users/raymondj/Documents/Raymond/ai-transition-lab/docs/roadmap/crm-agent-master-plan.md)
+- [版本发布计划](/Users/raymondj/Documents/Raymond/ai-transition-lab/docs/roadmap/crm-agent-release-plan.md)
+- [SDD 规范](/Users/raymondj/Documents/Raymond/ai-transition-lab/docs/engineering/crm-agent-sdd.md)
+- [TDD 规范](/Users/raymondj/Documents/Raymond/ai-transition-lab/docs/engineering/crm-agent-tdd.md)
+- [分支与发布规范](/Users/raymondj/Documents/Raymond/ai-transition-lab/docs/engineering/crm-agent-branching-and-release.md)
+- [测试策略](/Users/raymondj/Documents/Raymond/ai-transition-lab/docs/engineering/crm-agent-test-strategy.md)
+- [观测与问题沉淀](/Users/raymondj/Documents/Raymond/ai-transition-lab/docs/engineering/crm-agent-observability.md)
+- [生成式 UI 协议](/Users/raymondj/Documents/Raymond/ai-transition-lab/docs/product/crm-agent-ui-schema.md)
+- [Skills 与学习治理](/Users/raymondj/Documents/Raymond/ai-transition-lab/docs/product/crm-agent-skills-and-learning.md)
+- [问题记录](/Users/raymondj/Documents/Raymond/ai-transition-lab/docs/reviews/issue-log.md)
 
 ## 本地运行
 
@@ -93,3 +111,4 @@ cd ..
 - 演示数据为脱敏虚构数据
 - 商品图素材必须可替换且来源可追溯
 - 当前已补齐 Pencil 导出图，但 `.pen` 原文件仍未纳入固定仓库路径
+- 每个小任务都必须先补测试或先写测试，再进入实现

@@ -56,7 +56,9 @@ class AppSettings:
     db_path: Path
     frontend_dist: Path
     brand_name: str
+    advisor_id: str
     advisor_name: str
+    store_id: str
     store_name: str
 
 
@@ -73,7 +75,8 @@ def get_model_settings() -> ModelSettings:
         temperature=float(os.getenv("MODEL_TEMPERATURE", "0.4")),
         system_prompt=os.getenv(
             "MODEL_SYSTEM_PROMPT",
-            "你是服装零售导购工作台的文案助手，只能基于给定结构化数据输出简洁、可信、可执行的中文建议。",
+            "你是拥有 10 年经验的服装零售资深导购，只能基于给定结构化数据输出自然、可信、可执行的中文建议，"
+            "优先帮助导购完成客户维护、商品推荐、库存判断和跟进动作，不编造数据库外事实。",
         ).strip(),
     )
 
@@ -83,6 +86,8 @@ def get_app_settings() -> AppSettings:
         db_path=Path(os.getenv("CRM_DB_PATH", BASE_DIR / "data" / "crm_demo.sqlite3")),
         frontend_dist=BASE_DIR / "frontend" / "dist",
         brand_name=os.getenv("CRM_BRAND_NAME", "缦序"),
+        advisor_id=os.getenv("CRM_ADVISOR_ID", "advisor-demo-001"),
         advisor_name=os.getenv("CRM_ADVISOR_NAME", "林顾问"),
+        store_id=os.getenv("CRM_STORE_ID", "store-sh-jingan"),
         store_name=os.getenv("CRM_STORE_NAME", "上海静安店"),
     )

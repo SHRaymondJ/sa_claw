@@ -112,24 +112,55 @@ def complete_with_fallback(
         return fallback_text, f"fallback-{settings.source_label}"
 
 
-def generate_assistant_brief(intent_label: str, user_message: str, context_summary: str, fallback_text: str) -> tuple[str, str]:
+def generate_assistant_brief(
+    intent_label: str,
+    user_message: str,
+    context_summary: str,
+    fallback_text: str,
+    *,
+    customer_name: str = "",
+    conversation_mode: str = "",
+    handoff_reason: str = "",
+    confirmed_memory: str = "",
+    observed_memory: str = "",
+) -> tuple[str, str]:
     prompt = (
-        "你是一名服装门店导购工作台中的文案助手。"
-        "请基于下面的结构化结果，用 2 句中文给导购一个执行摘要。"
-        "只说门店执行内容，不要发挥没有提供的数据。\n\n"
+        "你是一名有 10 年经验的服装门店资深导购。"
+        "请基于下面的结构化结果，用自然、像真人沟通的 2 句中文给导购一个执行摘要。"
+        "只说门店执行内容，不要发挥没有提供的数据。"
+        "如果是客户盘点，要明确说总量和当前只是样本。"
+        "如果是客户洞察，要像导购总结，不要像数据库导出。"
+        "如果是商品推荐，要说出推荐原因或场景。"
+        "避免使用系统口吻，例如“已按数据库整理”。\n\n"
         f"任务类型：{intent_label}\n"
+        f"当前模式：{conversation_mode or '未标注'}\n"
+        f"当前客户：{customer_name or '未锁定'}\n"
+        f"切换原因：{handoff_reason or '无'}\n"
+        f"已确认记忆：{confirmed_memory or '无'}\n"
+        f"最近观察：{observed_memory or '无'}\n"
         f"用户输入：{user_message}\n"
         f"上下文摘要：{context_summary}"
     )
     return complete_with_fallback(prompt, fallback_text)
 
 
-def generate_message_draft(customer_name: str, product_names: list[str], tone: str, fallback_text: str) -> tuple[str, str]:
+def generate_message_draft(
+    customer_name: str,
+    product_names: list[str],
+    tone: str,
+    fallback_text: str,
+    *,
+    conversation_mode: str = "",
+    confirmed_memory: str = "",
+    observed_memory: str = "",
+) -> tuple[str, str]:
     names = "、".join(product_names[:3])
     prompt = (
         "请写一条门店导购给会员的中文私聊消息。"
         "要求：自然、专业、不过度推销，不超过 90 字。"
-        f"对象：{customer_name}，语气：{tone}，涉及商品：{names}。"
+        "像真人导购在微信里发出的消息，不要出现系统味总结。"
+        f"对象：{customer_name}，语气：{tone}，当前模式：{conversation_mode or '沟通整理'}，涉及商品：{names}。"
+        f"已确认记忆：{confirmed_memory or '无'}。最近观察：{observed_memory or '无'}。"
     )
     return complete_with_fallback(prompt, fallback_text)
 
@@ -168,7 +199,7 @@ def classify_sales_intent(message: str, brand_name: str) -> tuple[dict | None, s
         "返回 JSON，字段必须完整：\n"
         "{\n"
         '  "domain": "sales" | "out_of_scope",\n'
-        '  "intent": "product_recommendation" | "customer_filter" | "inventory_lookup" | "task_management" | "message_draft" | "unknown",\n'
+        '  "intent": "product_recommendation" | "customer_filter" | "inventory_lookup" | "task_management" | "message_draft" | "relationship_maintenance" | "unknown",\n'
         '  "customer_context": true | false,\n'
         '  "requested_count": number,\n'
         '  "category_hint": string,\n'
@@ -180,6 +211,7 @@ def classify_sales_intent(message: str, brand_name: str) -> tuple[dict | None, s
         "}\n"
         "说明：\n"
         "- 如果用户在问本品牌门店商品、客户、库存、任务、话术，domain= sales。\n"
+        "- 像“维护一下乔安禾的客户关系”“按照她的喜好推荐维护关系的方式”属于 sales + relationship_maintenance。\n"
         "- 像“找5件适合夏天穿的衣服”属于 sales + product_recommendation。\n"
         "- requested_count 没提就返回 4。\n"
         "- 没有明确 category_hint / season_hint 就返回空字符串。\n"

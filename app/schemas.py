@@ -29,6 +29,7 @@ class CRMMessage(BaseModel):
     text: str
     created_at: str
     ui_schema: list[CRMComponent] = Field(default_factory=list)
+    meta: dict[str, Any] = Field(default_factory=dict)
 
 
 class CRMChatRequest(BaseModel):
@@ -43,10 +44,20 @@ class CRMChatResponse(BaseModel):
     supported_actions: list[str]
     safety_status: Literal["allowed", "rejected"]
     context_version: str
+    meta: dict[str, Any] = Field(default_factory=dict)
+    clarification_needed: bool = False
+
+
+class ActionMutationResponse(BaseModel):
+    entity_id: str
+    status: str
+    message: str
+    session_meta: dict[str, Any] = Field(default_factory=dict)
+    updated_component: Optional[CRMComponent] = None
 
 
 class EntityDetailResponse(BaseModel):
-    entity_type: Literal["customer", "product", "task"]
+    entity_type: Literal["customer", "product", "task", "session"]
     entity_id: str
     title: str
     subtitle: str
@@ -59,6 +70,7 @@ class TaskCompleteResponse(BaseModel):
     status: str
     message: str
     updated_component: CRMComponent
+    session_meta: dict[str, Any] = Field(default_factory=dict)
 
 
 class ExplainSection(BaseModel):
@@ -80,7 +92,9 @@ class ExplainResponse(BaseModel):
 
 
 class BootstrapResponse(BaseModel):
+    advisor_id: str
     advisor_name: str
+    store_id: str
     store_name: str
     brand_name: str
     pending_task_count: int

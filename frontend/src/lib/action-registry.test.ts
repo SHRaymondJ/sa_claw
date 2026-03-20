@@ -1,9 +1,10 @@
 import { dispatchAction } from '@/lib/action-registry'
-import { getCustomerDetail } from '@/lib/api'
+import { getCustomerDetail, getSessionDetail } from '@/lib/api'
 import type { DetailResponse } from '@/lib/protocol'
 
 vi.mock('@/lib/api', () => ({
   getCustomerDetail: vi.fn().mockResolvedValue({ entity_id: 'C001' }),
+  getSessionDetail: vi.fn().mockResolvedValue({ entity_id: 's_1' }),
   getProductDetail: vi.fn().mockResolvedValue({ entity_id: 'P001' }),
   getTaskDetail: vi.fn().mockResolvedValue({ entity_id: 'T001' }),
   completeTask: vi.fn().mockResolvedValue({
@@ -11,16 +12,38 @@ vi.mock('@/lib/api', () => ({
     status: 'done',
     message: 'ok',
     updated_component: {
-      component_type: 'task_card',
+      component_type: 'action_result_notice',
       component_id: 'task-card',
-      title: '任务',
-      props: {},
+      title: '任务状态已更新',
+      props: { message: 'ok', status: 'success' },
+      actions: [],
+    },
+    session_meta: { session_id: 's_1', state_version: 2 },
+  }),
+  approveMemorySuggestion: vi.fn().mockResolvedValue({
+    entity_id: '1',
+    status: 'approved',
+    message: 'ok',
+    updated_component: {
+      component_type: 'action_result_notice',
+      component_id: 'notice-1',
+      title: '客户记录已确认',
+      props: { message: 'ok', status: 'success' },
       actions: [],
     },
   }),
+  rejectMemorySuggestion: vi.fn().mockResolvedValue({ entity_id: '1', status: 'rejected', message: 'ok' }),
 }))
 
 describe('dispatchAction', () => {
+  beforeEach(() => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('shows loading feedback before customer detail is resolved', async () => {
     let resolveDetail: undefined | ((value: DetailResponse) => void)
     vi.mocked(getCustomerDetail).mockReturnValueOnce(
@@ -48,6 +71,10 @@ describe('dispatchAction', () => {
         setDetailOpen,
         appendTaskCompletion: vi.fn(),
         setDetailLoading,
+        setDetailError: vi.fn(),
+        setDetailRetryAction: vi.fn(),
+        setSessionMeta: vi.fn(),
+        appendMutationNotice: vi.fn(),
       },
     )
 
@@ -94,9 +121,41 @@ describe('dispatchAction', () => {
         setDetail: vi.fn(),
         setDetailOpen: vi.fn(),
         appendTaskCompletion,
+        setDetailError: vi.fn(),
+        setDetailRetryAction: vi.fn(),
+        setSessionMeta: vi.fn(),
+        appendMutationNotice: vi.fn(),
       },
     )
 
     expect(appendTaskCompletion).toHaveBeenCalled()
+  })
+
+  it('opens session detail through session action', async () => {
+    const setDetail = vi.fn()
+
+    await dispatchAction(
+      {
+        action_type: 'open_session',
+        label: '查看会话节点',
+        entity_type: 'session',
+        entity_id: 's_1',
+        method: 'GET',
+        variant: 'secondary',
+        payload: {},
+      },
+      {
+        setDetail,
+        setDetailOpen: vi.fn(),
+        appendTaskCompletion: vi.fn(),
+        setDetailError: vi.fn(),
+        setDetailRetryAction: vi.fn(),
+        setSessionMeta: vi.fn(),
+        appendMutationNotice: vi.fn(),
+      },
+    )
+
+    expect(getSessionDetail).toHaveBeenCalledWith('s_1')
+    expect(setDetail).toHaveBeenCalled()
   })
 })

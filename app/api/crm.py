@@ -1,7 +1,21 @@
-from fastapi import APIRouter, HTTPException
+from typing import Optional
 
-from app.schemas import BootstrapResponse, CRMChatRequest, CRMChatResponse, EntityDetailResponse, ExplainResponse, TaskCompleteResponse
-from app.services.crm_service import complete_task, get_bootstrap_payload, get_customer_detail, get_product_detail, get_task_detail, send_chat
+from fastapi import APIRouter, Header, HTTPException
+
+from app.config import get_app_settings
+from app.schemas import ActionMutationResponse, BootstrapResponse, CRMChatRequest, CRMChatResponse, EntityDetailResponse, ExplainResponse, TaskCompleteResponse
+from app.services.access_control import build_request_actor, enforce_rate_limit
+from app.services.crm_service import (
+    approve_memory_suggestion,
+    complete_task,
+    get_bootstrap_payload,
+    get_customer_detail,
+    get_product_detail,
+    get_session_detail,
+    get_task_detail,
+    reject_memory_suggestion,
+    send_chat,
+)
 from app.services.explain import get_explain_payload
 
 
@@ -14,8 +28,21 @@ def bootstrap() -> BootstrapResponse:
 
 
 @router.post("/chat/send", response_model=CRMChatResponse)
-def chat_send(payload: CRMChatRequest) -> CRMChatResponse:
-    return send_chat(payload.message, payload.session_id)
+def chat_send(
+    payload: CRMChatRequest,
+    x_advisor_id: Optional[str] = Header(default=None),
+    x_store_id: Optional[str] = Header(default=None),
+) -> CRMChatResponse:
+    settings = get_app_settings()
+    actor = build_request_actor(
+        settings,
+        advisor_id=x_advisor_id,
+        store_id=x_store_id,
+        require_identity=False,
+    )
+    session_token = payload.session_id or "new-session"
+    enforce_rate_limit("chat", f"{actor.advisor_id}:{session_token}", limit=120, window_seconds=60)
+    return send_chat(payload.message, payload.session_id, actor=actor)
 
 
 @router.get("/customers/{customer_id}", response_model=EntityDetailResponse)
@@ -34,10 +61,30 @@ def product_detail(product_id: str) -> EntityDetailResponse:
         raise HTTPException(status_code=404, detail="product not found") from exc
 
 
-@router.post("/tasks/{task_id}/complete", response_model=TaskCompleteResponse)
-def task_complete(task_id: str) -> TaskCompleteResponse:
+@router.get("/sessions/{session_id}", response_model=EntityDetailResponse)
+def session_detail(session_id: str) -> EntityDetailResponse:
     try:
-        return complete_task(task_id)
+        return get_session_detail(session_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="session not found") from exc
+
+
+@router.post("/tasks/{task_id}/complete", response_model=TaskCompleteResponse)
+def task_complete(
+    task_id: str,
+    x_advisor_id: Optional[str] = Header(default=None),
+    x_store_id: Optional[str] = Header(default=None),
+) -> TaskCompleteResponse:
+    settings = get_app_settings()
+    actor = build_request_actor(
+        settings,
+        advisor_id=x_advisor_id,
+        store_id=x_store_id,
+        require_identity=True,
+    )
+    enforce_rate_limit("mutation", actor.advisor_id, limit=60, window_seconds=60)
+    try:
+        return complete_task(task_id, actor=actor)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="task not found") from exc
 
@@ -48,6 +95,46 @@ def task_detail(task_id: str) -> EntityDetailResponse:
         return get_task_detail(task_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="task not found") from exc
+
+
+@router.post("/memory-suggestions/{suggestion_id}/approve", response_model=ActionMutationResponse)
+def memory_suggestion_approve(
+    suggestion_id: int,
+    x_advisor_id: Optional[str] = Header(default=None),
+    x_store_id: Optional[str] = Header(default=None),
+) -> ActionMutationResponse:
+    settings = get_app_settings()
+    actor = build_request_actor(
+        settings,
+        advisor_id=x_advisor_id,
+        store_id=x_store_id,
+        require_identity=True,
+    )
+    enforce_rate_limit("mutation", actor.advisor_id, limit=60, window_seconds=60)
+    try:
+        return approve_memory_suggestion(suggestion_id, actor=actor)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="memory suggestion not found") from exc
+
+
+@router.post("/memory-suggestions/{suggestion_id}/reject", response_model=ActionMutationResponse)
+def memory_suggestion_reject(
+    suggestion_id: int,
+    x_advisor_id: Optional[str] = Header(default=None),
+    x_store_id: Optional[str] = Header(default=None),
+) -> ActionMutationResponse:
+    settings = get_app_settings()
+    actor = build_request_actor(
+        settings,
+        advisor_id=x_advisor_id,
+        store_id=x_store_id,
+        require_identity=True,
+    )
+    enforce_rate_limit("mutation", actor.advisor_id, limit=60, window_seconds=60)
+    try:
+        return reject_memory_suggestion(suggestion_id, actor=actor)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="memory suggestion not found") from exc
 
 
 @router.get("/explain", response_model=ExplainResponse)

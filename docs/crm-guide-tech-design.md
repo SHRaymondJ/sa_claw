@@ -65,12 +65,79 @@ React 工作台
 - 只放行客户筛选、商品推荐、库存查询、任务处理、话术整理、跟进建议
 - 命中其他品牌、政治、泛商业评论时直接返回拒答卡片
 - 不进入数据库查询和生成链路
+- 当模型输出与显式导购域规则冲突时，优先采用规则与会话上下文，不让正常导购问题被错拒
 
 ### 3.4 编排策略
 
 - 工具优先
 - 生成只用于任务摘要、话术润色和说明文本
 - 实体详情、库存、任务状态都以数据库查询结果为准
+- 聊天主链路固定拆成：硬边界判定 -> 问题类型判断 -> 上下文解析 -> 结果编排
+
+### 3.5 内部决策契约
+
+- `question_type`：内部问题类型，决定应该走哪类结果编排
+- `response_shape`：内部响应形态字符串，用于会话状态、回归测试和 explain 页面
+- `conversation_mode`：当前对话所处工作模式，例如客户洞察、商品推荐、客户维护、话术整理
+- `handoff_reason`：为什么从上一轮模式切换到当前模式，供前端状态条和会话详情展示
+- `working_memory_summary`：当前工作记忆摘要，帮助缓存、解释页与长对话稳定回看
+- `context_resolution`：当前回合的上下文解析结果，至少包含：
+  - `active_customer_id`
+  - `active_customer_name`
+  - `reused_from_session`
+  - `resolution_confidence`
+- `session_snapshot`：会话状态最小快照，至少包含：
+  - `active_customer_id`
+  - `active_customer_name`
+  - `active_intent`
+  - `conversation_mode`
+  - `last_response_shape`
+  - `last_entity_ids`
+  - `handoff_reason`
+  - `working_memory_summary`
+
+### 3.6 多轮状态机
+
+- 对话主链路不再只是一次性 `question_type -> response_shape`，而是显式维护多轮状态机
+- 状态机最少包含：
+  - `conversation_mode`
+  - `focus_scope`
+  - `handoff_reason`
+  - `working_memory_summary`
+- 继承规则采用“保守继承 + 明确切换”：
+  - 代词追问只在上一轮明确锁定客户时继承
+  - 用户命名新客户时立刻切换焦点
+  - 用户从客户问题切到任务问题时默认清空客户焦点
+- 缓存键必须带上会话模式和工作记忆摘要，避免不同阶段误命中旧响应
+
+### 3.7 响应形态约束表
+
+| 问题类型 | 固定响应形态 |
+| --- | --- |
+| 客户总览 | `customer_overview + workflow_checkpoint + customer_list` |
+| 客户筛选 | `workflow_checkpoint + customer_list` |
+| 客户洞察 | `customer_spotlight + detail_kv + tag_group + memory_briefs` |
+| 商品推荐 | `product_grid` |
+| 指定客户商品推荐 | `customer_spotlight + workflow_checkpoint + product_grid` |
+| 客户维护 | `customer_spotlight + workflow_checkpoint + relationship_plan + knowledge_briefs + product_grid` |
+| 沟通话术 | `customer_spotlight + workflow_checkpoint + [可选 product_grid] + message_draft` |
+| 品类盘点 | `category_overview` |
+| 客户标签总览 | `tag_group` |
+| 任务处理 | `task_list` 或 `workflow_checkpoint + task_list` |
+| 越界拒答 | `safety_notice` |
+
+### 3.8 分层记忆治理
+
+- 记忆拆成 3 层：
+  - 工作记忆：本轮目标、当前客户、最近动作结果
+  - 会话记忆：本会话已确认偏好、当前阶段、最近观察
+  - 长期记忆：已确认的稳定偏好、服务提示、禁忌项
+- 晋升规则：
+  - 只有导购显式备注、用户明确要求记住、或重复稳定出现时才允许进入长期记忆
+  - 会话结束后，会话记忆不会自动晋升为长期记忆
+- 冲突规则：
+  - 新观察若与已确认长期记忆冲突，只能进入待确认，不可直接覆盖
+  - 来源优先级固定为：导购显式确认 > 待确认观察 > 历史弱提示
 
 ## 4. 数据设计
 
@@ -146,7 +213,22 @@ React 工作台
 3. 更新 explain 页面
 4. 给未知协议提供降级渲染
 
-### 6.4 素材更新
+### 6.4 聊天稳定化回归
+
+1. 先跑后端集成测试，确认 `safety_status`、`question_type` 对应形态和摘要口径
+2. 再跑前端组件测试，确认关键协议组件仍可稳定渲染
+3. 再跑 E2E，覆盖移动端和桌面端的高频追问链路
+4. 最后按真人乱问清单逐条试问，确认不会出现错拒、错路由、错继承、错组件返回
+
+### 6.5 长对话回归要求
+
+1. 同一客户连续 5 轮追问，不得跳回客户清单或丢失客户焦点
+2. A 客户切到 B 客户后，代词追问只能落到最近明确锁定客户
+3. 客户维护 -> 商品推荐 -> 话术整理三段链路必须稳定迁移
+4. 客户问题 -> 任务问题 -> 再回客户问题时，客户焦点只在明确重新锁定后恢复
+5. 待确认观察被导购确认后，后续推荐与话术允许引用该记忆
+
+### 6.6 素材更新
 
 1. 先确认素材来源可追溯、可替换
 2. 替换 `products` 数据中的来源字段

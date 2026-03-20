@@ -34,9 +34,22 @@ OTHER_BRANDS = {
 INTENT_CACHE: dict[tuple[str, str], "GuardrailResult"] = {}
 
 PRODUCT_CUES = {
+    "品类",
+    "分类",
     "商品",
     "单品",
     "衣服",
+    "外套",
+    "连衣裙",
+    "裙子",
+    "西装",
+    "衬衫",
+    "针织",
+    "风衣",
+    "夹克",
+    "牛仔",
+    "裤子",
+    "上衣",
     "穿搭",
     "穿",
     "适合",
@@ -65,6 +78,10 @@ PRODUCT_CUES = {
 CUSTOMER_CUES = {
     "客户",
     "会员",
+    "标签",
+    "画像",
+    "偏好",
+    "喜欢",
     "高净值",
     "未联系",
     "没联系",
@@ -91,18 +108,57 @@ TASK_CUES = {
     "到期",
     "优先级",
     "完成",
-    "跟进",
-    "处理",
+}
+
+RELATIONSHIP_CUES = {
+    "维护",
+    "维护关系",
+    "客户关系",
+    "维系",
+    "经营关系",
+    "关怀",
+    "修复关系",
+    "唤醒",
 }
 
 SCRIPT_CUES = {
     "话术",
     "私聊",
     "微信",
+    "消息",
+    "发给",
+    "发一条",
+    "发条",
     "怎么说",
     "发什么",
     "文案",
     "短信",
+}
+
+MEMORY_UPDATE_CUES = {
+    "记住",
+    "补充",
+    "更新",
+    "备注",
+    "以后按",
+    "以后就按",
+    "客户备注",
+}
+
+REFERENCE_CUES = {
+    "他",
+    "她",
+    "他的",
+    "她的",
+    "这个客户",
+    "这位客户",
+    "这位会员",
+    "这个会员",
+    "继续",
+    "刚才",
+    "上一个客户",
+    "按她的喜好",
+    "按他的喜好",
 }
 
 CATEGORY_HINTS = {
@@ -193,10 +249,15 @@ def _heuristic_classification(message: str) -> GuardrailResult:
     season_hint = _match_hint(message, SEASON_HINTS)
 
     product_hits = sum(1 for cue in PRODUCT_CUES if cue in text or cue in message)
+    if category_hint:
+        product_hits += 1
     customer_hits = sum(1 for cue in CUSTOMER_CUES if cue in message)
     inventory_hits = sum(1 for cue in INVENTORY_CUES if cue in message)
     task_hits = sum(1 for cue in TASK_CUES if cue in message)
+    relationship_hits = sum(1 for cue in RELATIONSHIP_CUES if cue in message)
     script_hits = sum(1 for cue in SCRIPT_CUES if cue in message)
+    memory_update_hits = sum(1 for cue in MEMORY_UPDATE_CUES if cue in message)
+    reference_hits = sum(1 for cue in REFERENCE_CUES if cue in message)
 
     if inventory_hits and product_hits:
         intent = "inventory_lookup"
@@ -204,6 +265,9 @@ def _heuristic_classification(message: str) -> GuardrailResult:
     elif task_hits:
         intent = "task_management"
         intent_label = "任务处理"
+    elif relationship_hits or memory_update_hits:
+        intent = "relationship_maintenance"
+        intent_label = "客户维护"
     elif script_hits:
         intent = "message_draft"
         intent_label = "话术整理"
@@ -224,7 +288,7 @@ def _heuristic_classification(message: str) -> GuardrailResult:
             ],
         )
 
-    customer_context = customer_hits > 0
+    customer_context = customer_hits > 0 or memory_update_hits > 0 or reference_hits > 0
     style_terms = [
         term
         for term in ["通勤", "上班", "约会", "度假", "显瘦", "显高", "小个子", "轻薄", "透气", "凉快"]
@@ -239,7 +303,7 @@ def _heuristic_classification(message: str) -> GuardrailResult:
         intent=intent,
         intent_label=intent_label,
         query_products=intent in {"product_recommendation", "inventory_lookup"} or customer_context,
-        query_customers=intent == "customer_filter" or customer_context,
+        query_customers=intent in {"customer_filter", "relationship_maintenance"} or customer_context,
         query_tasks=intent == "task_management",
         requested_count=quantity,
         category_hint=category_hint,
@@ -285,6 +349,7 @@ def _from_model_payload(payload: dict) -> GuardrailResult | None:
         "inventory_lookup": "库存查询",
         "task_management": "任务处理",
         "message_draft": "话术整理",
+        "relationship_maintenance": "客户维护",
     }
     if intent not in intent_label_map:
         return None
@@ -295,8 +360,8 @@ def _from_model_payload(payload: dict) -> GuardrailResult | None:
         examples=[],
         intent=intent,
         intent_label=intent_label_map[intent],
-        query_products=intent in {"product_recommendation", "inventory_lookup"} or customer_context,
-        query_customers=intent == "customer_filter" or customer_context,
+        query_products=intent in {"product_recommendation", "inventory_lookup", "relationship_maintenance"} or customer_context,
+        query_customers=intent in {"customer_filter", "relationship_maintenance"} or customer_context,
         query_tasks=intent == "task_management",
         requested_count=max(1, min(quantity, 8)),
         category_hint=category_hint,
@@ -341,13 +406,24 @@ def evaluate_message(message: str, brand_name: str) -> GuardrailResult:
         INTENT_CACHE[cache_key] = result
         return result
 
+    heuristic_result = _heuristic_classification(message)
     payload, _ = classify_sales_intent(message, brand_name)
     if payload:
         model_result = _from_model_payload(payload)
         if model_result is not None:
+            if heuristic_result.allowed and not model_result.allowed:
+                INTENT_CACHE[cache_key] = heuristic_result
+                return heuristic_result
+            if (
+                heuristic_result.allowed
+                and heuristic_result.intent != model_result.intent
+                and heuristic_result.intent in {"customer_filter", "product_recommendation", "inventory_lookup"}
+                and model_result.intent == "task_management"
+            ):
+                INTENT_CACHE[cache_key] = heuristic_result
+                return heuristic_result
             INTENT_CACHE[cache_key] = model_result
             return model_result
 
-    heuristic_result = _heuristic_classification(message)
     INTENT_CACHE[cache_key] = heuristic_result
     return heuristic_result

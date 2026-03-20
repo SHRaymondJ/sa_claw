@@ -24,6 +24,7 @@ export type ChatMessage = {
   text: string
   created_at: string
   ui_schema: UIComponent[]
+  meta?: Record<string, unknown>
 }
 
 export type ChatResponse = {
@@ -33,10 +34,14 @@ export type ChatResponse = {
   supported_actions: string[]
   safety_status: 'allowed' | 'rejected'
   context_version: string
+  meta?: Record<string, unknown>
+  clarification_needed?: boolean
 }
 
 export type BootstrapResponse = {
+  advisor_id: string
   advisor_name: string
+  store_id: string
   store_name: string
   brand_name: string
   pending_task_count: number
@@ -62,7 +67,7 @@ export type ExplainResponse = {
 }
 
 export type DetailResponse = {
-  entity_type: 'customer' | 'product' | 'task'
+  entity_type: 'customer' | 'product' | 'task' | 'session'
   entity_id: string
   title: string
   subtitle: string
@@ -75,4 +80,13 @@ export type TaskCompleteResponse = {
   status: string
   message: string
   updated_component: UIComponent
+  session_meta?: Record<string, unknown>
+}
+
+export type ActionMutationResponse = {
+  entity_id: string
+  status: string
+  message: string
+  session_meta?: Record<string, unknown>
+  updated_component?: UIComponent | null
 }

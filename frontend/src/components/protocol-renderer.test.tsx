@@ -3,6 +3,58 @@ import { render, screen } from '@testing-library/react'
 import { ProtocolRenderer } from '@/components/protocol-renderer'
 
 describe('ProtocolRenderer', () => {
+  it('renders customer inventory overview with total and sample hint', () => {
+    render(
+      <ProtocolRenderer
+        component={{
+          component_type: 'customer_overview',
+          component_id: 'customer-overview-1',
+          title: '门店客户概览',
+          props: {
+            total_customers: 360,
+            sample_limit: 4,
+            tier_breakdown: [
+              { tier: '高净值', count: 52 },
+              { tier: '高潜', count: 118 },
+            ],
+          },
+          actions: [],
+        }}
+        onAction={() => {}}
+      />,
+    )
+
+    expect(screen.getByText('客户总量')).toBeInTheDocument()
+    expect(screen.getByText('360')).toBeInTheDocument()
+    expect(screen.getByText('当前先展示 4 位代表客户')).toBeInTheDocument()
+    expect(screen.getByText('高净值 52')).toBeInTheDocument()
+  })
+
+  it('renders category overview instead of individual product cards', () => {
+    render(
+      <ProtocolRenderer
+        component={{
+          component_type: 'category_overview',
+          component_id: 'category-overview-1',
+          title: '当前可推荐品类',
+          props: {
+            total_categories: 3,
+            items: [
+              { category: '衬衫', product_count: 12, store_stock: 42 },
+              { category: '西装', product_count: 8, store_stock: 20 },
+            ],
+          },
+          actions: [],
+        }}
+        onAction={() => {}}
+      />,
+    )
+
+    expect(screen.getByText('当前共有 3 个可推荐品类')).toBeInTheDocument()
+    expect(screen.getByText('衬衫')).toBeInTheDocument()
+    expect(screen.getByText('商品 12 款 · 门店现货 42 件')).toBeInTheDocument()
+  })
+
   it('renders product match reasons and display tags', () => {
     render(
       <ProtocolRenderer
@@ -52,5 +104,35 @@ describe('ProtocolRenderer', () => {
 
     expect(screen.getByText('未注册组件')).toBeInTheDocument()
     expect(screen.getByText('unknown_block')).toBeInTheDocument()
+  })
+
+  it('renders clarification notice with retry prompts', () => {
+    render(
+      <ProtocolRenderer
+        component={{
+          component_type: 'clarification_notice',
+          component_id: 'clarify-1',
+          title: '还需要补充一个关键信息',
+          props: {
+            reason: '当前还没有锁定具体客户。',
+            prompts: ['帮我给乔安禾发条消息'],
+          },
+          actions: [
+            {
+              action_type: 'retry_send',
+              label: '帮我给乔安禾发条消息',
+              entity_type: 'conversation',
+              method: 'POST',
+              variant: 'secondary',
+              payload: { message: '帮我给乔安禾发条消息' },
+            },
+          ],
+        }}
+        onAction={() => {}}
+      />,
+    )
+
+    expect(screen.getByText('当前还没有锁定具体客户。')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '帮我给乔安禾发条消息' })).toBeInTheDocument()
   })
 })

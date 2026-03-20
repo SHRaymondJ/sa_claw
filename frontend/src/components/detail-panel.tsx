@@ -8,6 +8,8 @@ type DetailPanelProps = {
   detail: DetailResponse | null
   open: boolean
   loading?: boolean
+  errorMessage?: string | null
+  onRetry?: (() => void) | null
   onOpenChange: (open: boolean) => void
   onAction: (action: UIAction) => void
 }
@@ -49,14 +51,36 @@ function EmptyState() {
 function DetailBody({
   detail,
   loading = false,
+  errorMessage = null,
+  onRetry = null,
   onAction,
 }: {
   detail: DetailResponse | null
   loading?: boolean
+  errorMessage?: string | null
+  onRetry?: (() => void) | null
   onAction: (action: UIAction) => void
 }) {
   if (loading) {
     return <DetailLoadingState />
+  }
+
+  if (errorMessage) {
+    return (
+      <div className="soft-panel space-y-3 p-5">
+        <p className="text-xs uppercase tracking-[0.22em] text-[var(--muted)]">详情加载失败</p>
+        <p className="text-sm leading-6 text-[var(--ink)]">{errorMessage}</p>
+        {onRetry ? (
+          <button
+            type="button"
+            className="border border-[var(--line-strong)] bg-[var(--paper)] px-3 py-2 text-sm text-[var(--ink)] transition-colors hover:bg-[var(--surface)]"
+            onClick={onRetry}
+          >
+            重试查看详情
+          </button>
+        ) : null}
+      </div>
+    )
   }
 
   if (!detail) {
@@ -93,7 +117,15 @@ function DetailRenderer({
   return <Renderer component={component} onAction={onAction} />
 }
 
-export function DetailPanel({ detail, open, loading = false, onOpenChange, onAction }: DetailPanelProps) {
+export function DetailPanel({
+  detail,
+  open,
+  loading = false,
+  errorMessage = null,
+  onRetry = null,
+  onOpenChange,
+  onAction,
+}: DetailPanelProps) {
   const isDesktop = useMediaQuery('(min-width: 1024px)')
 
   if (isDesktop) {
@@ -110,7 +142,7 @@ export function DetailPanel({ detail, open, loading = false, onOpenChange, onAct
             </p>
           </div>
           <div className="mt-4 h-[calc(100%-6rem)]">
-            <DetailBody detail={detail} loading={loading} onAction={onAction} />
+            <DetailBody detail={detail} loading={loading} errorMessage={errorMessage} onRetry={onRetry} onAction={onAction} />
           </div>
         </div>
       </div>
@@ -127,7 +159,7 @@ export function DetailPanel({ detail, open, loading = false, onOpenChange, onAct
           </SheetDescription>
         </SheetHeader>
         <div className="min-h-0 flex-1 p-4">
-          <DetailBody detail={detail} loading={loading} onAction={onAction} />
+          <DetailBody detail={detail} loading={loading} errorMessage={errorMessage} onRetry={onRetry} onAction={onAction} />
         </div>
       </SheetContent>
     </Sheet>
