@@ -67,6 +67,25 @@ def test_chat_endpoint_respects_configured_rate_limit(monkeypatch) -> None:
     assert third.json()["detail"] == "rate limit exceeded"
 
 
+def test_mutation_endpoint_respects_configured_rate_limit(monkeypatch) -> None:
+    monkeypatch.setenv("CRM_MUTATION_RATE_LIMIT", "2")
+    monkeypatch.setenv("CRM_MUTATION_RATE_WINDOW_SECONDS", "60")
+
+    headers = {
+        "X-Advisor-Id": "advisor-mutation-rate-limit-case",
+        "X-Store-Id": "store-sh-jingan",
+    }
+
+    first = client.post("/api/crm/tasks/T404-A/complete", headers=headers)
+    second = client.post("/api/crm/tasks/T404-B/complete", headers=headers)
+    third = client.post("/api/crm/tasks/T404-C/complete", headers=headers)
+
+    assert first.status_code == 404
+    assert second.status_code == 404
+    assert third.status_code == 429
+    assert third.json()["detail"] == "rate limit exceeded"
+
+
 def test_semantic_product_query_flow() -> None:
     chat_response = client.post(
         "/api/crm/chat/send",

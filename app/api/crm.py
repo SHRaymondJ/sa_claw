@@ -87,7 +87,12 @@ def task_complete(
         store_id=x_store_id,
         require_identity=True,
     )
-    enforce_rate_limit("mutation", actor.advisor_id, limit=60, window_seconds=60)
+    enforce_rate_limit(
+        "mutation",
+        actor.advisor_id,
+        limit=settings.mutation_rate_limit,
+        window_seconds=settings.mutation_rate_window_seconds,
+    )
     try:
         return complete_task(task_id, actor=actor)
     except KeyError as exc:
@@ -115,7 +120,12 @@ def memory_suggestion_approve(
         store_id=x_store_id,
         require_identity=True,
     )
-    enforce_rate_limit("mutation", actor.advisor_id, limit=60, window_seconds=60)
+    enforce_rate_limit(
+        "mutation",
+        actor.advisor_id,
+        limit=settings.mutation_rate_limit,
+        window_seconds=settings.mutation_rate_window_seconds,
+    )
     try:
         return approve_memory_suggestion(suggestion_id, actor=actor)
     except KeyError as exc:
@@ -135,7 +145,12 @@ def memory_suggestion_reject(
         store_id=x_store_id,
         require_identity=True,
     )
-    enforce_rate_limit("mutation", actor.advisor_id, limit=60, window_seconds=60)
+    enforce_rate_limit(
+        "mutation",
+        actor.advisor_id,
+        limit=settings.mutation_rate_limit,
+        window_seconds=settings.mutation_rate_window_seconds,
+    )
     try:
         return reject_memory_suggestion(suggestion_id, actor=actor)
     except KeyError as exc:

@@ -163,6 +163,9 @@ React 工作台
 - 当前已完成第六批迁移：
   - `CRM_CHAT_RATE_LIMIT`
   - `CRM_CHAT_RATE_WINDOW_SECONDS`
+- 当前已完成第七批迁移：
+  - `CRM_MUTATION_RATE_LIMIT`
+  - `CRM_MUTATION_RATE_WINDOW_SECONDS`
 
 ### 3.8 分层记忆治理
 

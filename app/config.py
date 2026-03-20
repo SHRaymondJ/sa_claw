@@ -69,6 +69,8 @@ class AppSettings:
     memory_brief_limit: int
     chat_rate_limit: int
     chat_rate_window_seconds: int
+    mutation_rate_limit: int
+    mutation_rate_window_seconds: int
     quick_prompts: tuple[str, ...]
 
 
@@ -139,5 +141,7 @@ def get_app_settings() -> AppSettings:
         memory_brief_limit=_get_int_env("CRM_MEMORY_BRIEF_LIMIT", 4, minimum=1, maximum=8),
         chat_rate_limit=_get_int_env("CRM_CHAT_RATE_LIMIT", 120, minimum=1, maximum=1000),
         chat_rate_window_seconds=_get_int_env("CRM_CHAT_RATE_WINDOW_SECONDS", 60, minimum=1, maximum=3600),
+        mutation_rate_limit=_get_int_env("CRM_MUTATION_RATE_LIMIT", 60, minimum=1, maximum=1000),
+        mutation_rate_window_seconds=_get_int_env("CRM_MUTATION_RATE_WINDOW_SECONDS", 60, minimum=1, maximum=3600),
         quick_prompts=_parse_prompt_list(os.getenv("CRM_QUICK_PROMPTS", ""), default_prompts),
     )
