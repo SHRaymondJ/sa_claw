@@ -44,6 +44,29 @@ def test_bootstrap_and_chat_flow() -> None:
     assert "message_draft" not in component_types
 
 
+def test_chat_endpoint_respects_configured_rate_limit(monkeypatch) -> None:
+    monkeypatch.setenv("CRM_CHAT_RATE_LIMIT", "2")
+    monkeypatch.setenv("CRM_CHAT_RATE_WINDOW_SECONDS", "60")
+
+    headers = {
+        "X-Advisor-Id": "advisor-rate-limit-case",
+        "X-Store-Id": "store-sh-jingan",
+    }
+    payload = {
+        "session_id": "session-rate-limit-case",
+        "message": "帮我找今天该优先跟进但还没联系的高净值客户",
+    }
+
+    first = client.post("/api/crm/chat/send", json=payload, headers=headers)
+    second = client.post("/api/crm/chat/send", json=payload, headers=headers)
+    third = client.post("/api/crm/chat/send", json=payload, headers=headers)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert third.status_code == 429
+    assert third.json()["detail"] == "rate limit exceeded"
+
+
 def test_semantic_product_query_flow() -> None:
     chat_response = client.post(
         "/api/crm/chat/send",

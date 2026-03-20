@@ -41,7 +41,12 @@ def chat_send(
         require_identity=False,
     )
     session_token = payload.session_id or "new-session"
-    enforce_rate_limit("chat", f"{actor.advisor_id}:{session_token}", limit=120, window_seconds=60)
+    enforce_rate_limit(
+        "chat",
+        f"{actor.advisor_id}:{session_token}",
+        limit=settings.chat_rate_limit,
+        window_seconds=settings.chat_rate_window_seconds,
+    )
     return send_chat(payload.message, payload.session_id, actor=actor)
 
 

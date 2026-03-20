@@ -160,6 +160,9 @@ React 工作台
 - 当前已完成第五批清理：
   - 前端头部不再回退到 demo 品牌、门店和导购姓名
   - bootstrap 字段缺失时改为展示中性占位，避免 UI 伪造业务身份
+- 当前已完成第六批迁移：
+  - `CRM_CHAT_RATE_LIMIT`
+  - `CRM_CHAT_RATE_WINDOW_SECONDS`
 
 ### 3.8 分层记忆治理
 

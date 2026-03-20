@@ -67,6 +67,8 @@ class AppSettings:
     product_tag_limit: int
     workflow_note_limit: int
     memory_brief_limit: int
+    chat_rate_limit: int
+    chat_rate_window_seconds: int
     quick_prompts: tuple[str, ...]
 
 
@@ -135,5 +137,7 @@ def get_app_settings() -> AppSettings:
         product_tag_limit=_get_int_env("CRM_PRODUCT_TAG_LIMIT", 4, minimum=1, maximum=8),
         workflow_note_limit=_get_int_env("CRM_WORKFLOW_NOTE_LIMIT", 4, minimum=1, maximum=8),
         memory_brief_limit=_get_int_env("CRM_MEMORY_BRIEF_LIMIT", 4, minimum=1, maximum=8),
+        chat_rate_limit=_get_int_env("CRM_CHAT_RATE_LIMIT", 120, minimum=1, maximum=1000),
+        chat_rate_window_seconds=_get_int_env("CRM_CHAT_RATE_WINDOW_SECONDS", 60, minimum=1, maximum=3600),
         quick_prompts=_parse_prompt_list(os.getenv("CRM_QUICK_PROMPTS", ""), default_prompts),
     )
