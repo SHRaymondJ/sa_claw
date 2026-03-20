@@ -1,7 +1,7 @@
 import os
 
 from app.services import guardrails as guardrails_module
-from app.services.guardrails import evaluate_message
+from app.services.guardrails import GuardrailResult, evaluate_message
 
 
 os.environ["MODEL_PROVIDER"] = "mock"
@@ -29,6 +29,14 @@ def test_guardrails_default_requested_count_respects_config(monkeypatch) -> None
 
     assert result.allowed is True
     assert result.intent == "product_recommendation"
+    assert result.requested_count == 6
+
+
+def test_guardrail_result_default_requested_count_follows_config(monkeypatch) -> None:
+    monkeypatch.setenv("CRM_DEFAULT_RESULT_COUNT", "6")
+
+    result = GuardrailResult(allowed=False, reason="blocked", examples=[])
+
     assert result.requested_count == 6
 
 

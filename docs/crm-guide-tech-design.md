@@ -154,6 +154,9 @@ React 工作台
 - 当前已完成第三批迁移：
   - `CRM_WORKFLOW_NOTE_LIMIT`
   - `CRM_MEMORY_BRIEF_LIMIT`
+- 当前已完成第四批迁移：
+  - `CRM_PRODUCT_TAG_LIMIT`
+  - `GuardrailResult.requested_count` 默认值已改为读取配置层
 
 ### 3.8 分层记忆治理
 

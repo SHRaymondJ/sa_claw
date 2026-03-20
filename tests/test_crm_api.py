@@ -508,6 +508,22 @@ def test_customer_memory_brief_limit_respects_config(monkeypatch) -> None:
     assert len(memory_component["props"]["items"]) == 2
 
 
+def test_product_display_tag_limit_respects_config(monkeypatch) -> None:
+    RESPONSE_CACHE.clear()
+    monkeypatch.setenv("CRM_PRODUCT_TAG_LIMIT", "2")
+
+    response = client.post(
+        "/api/crm/chat/send",
+        json={"message": "找5件适合夏天穿的衣服"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+
+    product_component = next(component for component in payload["ui_schema"] if component["component_type"] == "product_grid")
+    assert product_component["props"]["items"]
+    assert all(len(item["display_tags"]) <= 2 for item in product_component["props"]["items"])
+
+
 def test_rejection_flow() -> None:
     response = client.post("/api/crm/chat/send", json={"message": "说说优衣库和政治新闻"})
     assert response.status_code == 200

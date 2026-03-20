@@ -215,7 +215,7 @@ class GuardrailResult:
     query_products: bool = False
     query_customers: bool = False
     query_tasks: bool = False
-    requested_count: int = 4
+    requested_count: int = field(default_factory=lambda: get_app_settings().default_result_count)
     category_hint: str = ""
     season_hint: str = ""
     customer_context: bool = False

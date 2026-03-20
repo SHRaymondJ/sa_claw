@@ -361,6 +361,7 @@ def _query_products(
     memory_preferences: dict | None = None,
     exclude_ids: list[str] | None = None,
 ) -> list[dict]:
+    settings = get_app_settings()
     rows = connection.execute(
         """
         SELECT p.*, i.availability, i.store_stock, i.warehouse_stock
@@ -453,7 +454,9 @@ def _query_products(
         ranked.append((score, product))
 
         product["match_terms"] = _dedupe_preserve_order(matched_terms)
-        product["display_tags"] = _dedupe_preserve_order([*matched_terms, *style_tags[:2], product["color"]])[:4]
+        product["display_tags"] = _dedupe_preserve_order([*matched_terms, *style_tags[:2], product["color"]])[
+            : settings.product_tag_limit
+        ]
         product["match_reason"] = "；".join(_dedupe_preserve_order(reason_bits)[:3]) or product["summary"]
 
     ranked.sort(key=lambda item: (item[0], item[1]["price"]), reverse=True)
