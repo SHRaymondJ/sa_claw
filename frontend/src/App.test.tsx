@@ -6,7 +6,14 @@ import App from '@/App'
 import { getBootstrap, sendChat } from '@/lib/api'
 
 vi.mock('@/lib/api', () => ({
-  APIError: class APIError extends Error {},
+  APIError: class APIError extends Error {
+    status: number
+
+    constructor(status: number, message: string) {
+      super(message)
+      this.status = status
+    }
+  },
   setRequestIdentity: vi.fn(),
   getBootstrap: vi.fn().mockResolvedValue({
     advisor_id: 'advisor-demo-001',
@@ -208,5 +215,26 @@ describe('App', () => {
       expect(screen.getAllByText('发送失败').length).toBeGreaterThan(0)
     })
     expect(screen.getByRole('button', { name: '重试发送' })).toBeInTheDocument()
+  })
+
+  it('shows a rate limit hint when chat send is throttled', async () => {
+    const user = userEvent.setup()
+    const { APIError } = await import('@/lib/api')
+    vi.mocked(sendChat).mockRejectedValueOnce(new APIError(429, 'rate limit exceeded'))
+
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>,
+    )
+
+    await screen.findByText('缦序 导购席位')
+    await user.type(screen.getByRole('textbox'), '帮我找重点客户')
+    await user.click(screen.getByRole('button', { name: '发送' }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/当前发送过快/)).toBeInTheDocument()
+    })
+    expect(screen.getByText('请稍等片刻再继续发送，当前输入内容不会丢失。')).toBeInTheDocument()
   })
 })

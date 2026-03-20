@@ -127,6 +127,29 @@ function getWorkbenchMetaLine(bootstrap: BootstrapResponse | null, isDesktop: bo
   return joinMetaParts([advisorName, storeName, `${isDesktop ? '今日待办' : '待办'} ${pendingTaskCount}`])
 }
 
+function getHumanizedRequestError(error: unknown, fallback: string) {
+  if (error instanceof APIError && error.status === 429) {
+    return {
+      text: '当前发送过快，系统已临时保护本次会话。稍等片刻再继续。',
+      notice: '请稍等片刻再继续发送，当前输入内容不会丢失。',
+      handoffReason: '当前会话触发了访问保护，本轮没有写入新的结果。',
+    }
+  }
+
+  const message =
+    error instanceof APIError
+      ? error.message
+      : error instanceof Error
+        ? error.message
+        : fallback
+
+  return {
+    text: message,
+    notice: fallback,
+    handoffReason: '网络或服务暂时不可用，本轮没有写入新的结果。',
+  }
+}
+
 function BootstrapShell() {
   return (
     <div className="flex min-h-screen flex-col border-x border-[var(--line)] bg-[var(--paper)]">
@@ -727,24 +750,19 @@ function WorkbenchPage() {
         setMessages((current) => [...current, assistantMessage])
       })
     } catch (error) {
-      const message =
-        error instanceof APIError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : '当前消息发送失败，请稍后重试。'
+      const requestError = getHumanizedRequestError(error, '当前消息发送失败，请稍后重试。')
       startTransition(() => {
         setMessages((current) => [
           ...current,
           {
             message_id: `assistant-error-${Date.now()}`,
             role: 'assistant',
-            text: `刚才这条消息没有处理成功。${message}`,
+            text: `刚才这条消息没有处理成功。${requestError.text}`,
             created_at: new Date().toISOString(),
             ui_schema: [
               buildActionResultComponent({
                 title: '发送失败',
-                message: '你可以直接重试这条消息，当前输入内容不会丢失。',
+                message: requestError.notice,
                 status: 'error',
                 actions: [
                   {
@@ -760,7 +778,7 @@ function WorkbenchPage() {
             ],
             meta: {
               status_hint: '发送失败',
-              handoff_reason: '网络或服务暂时不可用，本轮没有写入新的结果。',
+              handoff_reason: requestError.handoffReason,
             },
           },
         ])
