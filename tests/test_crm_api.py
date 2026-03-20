@@ -83,6 +83,25 @@ def test_customer_inventory_query_shows_overview_and_sample_list() -> None:
     assert len(sample_component["props"]["items"]) == overview_component["props"]["sample_limit"]
 
 
+def test_customer_inventory_query_respects_configured_sample_limit(monkeypatch) -> None:
+    RESPONSE_CACHE.clear()
+    monkeypatch.setenv("CRM_CUSTOMER_SAMPLE_LIMIT", "6")
+
+    chat_response = client.post(
+        "/api/crm/chat/send",
+        json={"message": "现在有哪些客户"},
+    )
+
+    assert chat_response.status_code == 200
+    data = chat_response.json()
+    overview_component = next(
+        component for component in data["ui_schema"] if component["component_type"] == "customer_overview"
+    )
+    sample_component = next(component for component in data["ui_schema"] if component["component_type"] == "customer_list")
+    assert overview_component["props"]["sample_limit"] == 6
+    assert len(sample_component["props"]["items"]) == 6
+
+
 def test_category_inventory_query_shows_category_overview_only() -> None:
     chat_response = client.post(
         "/api/crm/chat/send",
@@ -335,6 +354,61 @@ def test_named_customer_product_query_is_compact() -> None:
     names = [item["name"] for item in product_component["props"]["items"]]
     assert len(names) == len(set(names))
     assert len(data["messages"][-1]["text"]) <= 72
+
+
+def test_repeat_query_preserves_product_entities_by_default() -> None:
+    RESPONSE_CACHE.clear()
+
+    first = client.post(
+        "/api/crm/chat/send",
+        json={"message": "给乔知夏推荐一些产品，并且说明理由"},
+    )
+    assert first.status_code == 200
+    first_payload = first.json()
+    session_id = first_payload["session_id"]
+    first_grid = next(component for component in first_payload["ui_schema"] if component["component_type"] == "product_grid")
+    first_ids = [item["id"] for item in first_grid["props"]["items"]]
+    assert first_payload["meta"]["repeat_query_mode"] == "fresh"
+
+    second = client.post(
+        "/api/crm/chat/send",
+        json={"session_id": session_id, "message": "给乔知夏推荐一些产品，并且说明理由"},
+    )
+    assert second.status_code == 200
+    second_payload = second.json()
+    second_grid = next(component for component in second_payload["ui_schema"] if component["component_type"] == "product_grid")
+    second_ids = [item["id"] for item in second_grid["props"]["items"]]
+
+    assert second_payload["meta"]["repeat_query_mode"] == "preserve"
+    assert second_ids == first_ids
+
+
+def test_repeat_query_diversifies_when_user_asks_for_another_batch() -> None:
+    RESPONSE_CACHE.clear()
+
+    first = client.post(
+        "/api/crm/chat/send",
+        json={"message": "找3件适合夏天穿的衣服"},
+    )
+    assert first.status_code == 200
+    first_payload = first.json()
+    session_id = first_payload["session_id"]
+    first_grid = next(component for component in first_payload["ui_schema"] if component["component_type"] == "product_grid")
+    first_ids = [item["id"] for item in first_grid["props"]["items"]]
+    assert len(first_ids) == 3
+
+    second = client.post(
+        "/api/crm/chat/send",
+        json={"session_id": session_id, "message": "换一批"},
+    )
+    assert second.status_code == 200
+    second_payload = second.json()
+    second_grid = next(component for component in second_payload["ui_schema"] if component["component_type"] == "product_grid")
+    second_ids = [item["id"] for item in second_grid["props"]["items"]]
+
+    assert second_payload["meta"]["repeat_query_mode"] == "diversify"
+    assert len(second_ids) == 3
+    assert second_ids != first_ids
 
 
 def test_relationship_maintenance_uses_customer_memory_and_session_context() -> None:

@@ -4,7 +4,7 @@ import json
 import socket
 from urllib import error, request
 
-from app.config import get_model_settings
+from app.config import get_app_settings, get_model_settings
 
 
 def _call_chat_completion(user_prompt: str, system_prompt_override: str | None = None) -> tuple[str, str]:
@@ -186,6 +186,7 @@ def _extract_json_object(raw_text: str) -> dict | None:
 
 def classify_sales_intent(message: str, brand_name: str) -> tuple[dict | None, str]:
     fallback = None
+    app_settings = get_app_settings()
     system_prompt = (
         "你是服装零售导购工作台中的语义意图分类器。"
         "你的任务不是聊天，而是把用户输入映射成严格 JSON。"
@@ -213,7 +214,7 @@ def classify_sales_intent(message: str, brand_name: str) -> tuple[dict | None, s
         "- 如果用户在问本品牌门店商品、客户、库存、任务、话术，domain= sales。\n"
         "- 像“维护一下乔安禾的客户关系”“按照她的喜好推荐维护关系的方式”属于 sales + relationship_maintenance。\n"
         "- 像“找5件适合夏天穿的衣服”属于 sales + product_recommendation。\n"
-        "- requested_count 没提就返回 4。\n"
+        f"- requested_count 没提就返回 {app_settings.default_result_count}。\n"
         "- 没有明确 category_hint / season_hint 就返回空字符串。\n"
         "- style_terms / query_terms 没有就返回空数组。"
     )

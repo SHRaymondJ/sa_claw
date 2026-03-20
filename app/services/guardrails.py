@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from app.config import get_app_settings
 from app.services.llm_adapter import classify_sales_intent
 
 
@@ -223,14 +224,14 @@ class GuardrailResult:
     confidence: str = "low"
 
 
-def _extract_requested_count(message: str, default: int = 4) -> int:
+def _extract_requested_count(message: str, default: int, maximum: int) -> int:
     arabic = re.search(r"(\d+)\s*(件|款|个|套)", message)
     if arabic:
-        return max(1, min(int(arabic.group(1)), 8))
+        return max(1, min(int(arabic.group(1)), maximum))
 
     chinese = re.search(r"([一二两三四五六七八九十])\s*(件|款|个|套)", message)
     if chinese:
-        return max(1, min(CHINESE_NUMERALS.get(chinese.group(1), default), 8))
+        return max(1, min(CHINESE_NUMERALS.get(chinese.group(1), default), maximum))
 
     return default
 
@@ -243,8 +244,13 @@ def _match_hint(message: str, hints: dict[str, str]) -> str:
 
 
 def _heuristic_classification(message: str) -> GuardrailResult:
+    settings = get_app_settings()
     text = message.lower()
-    quantity = _extract_requested_count(message)
+    quantity = _extract_requested_count(
+        message,
+        default=settings.default_result_count,
+        maximum=settings.max_result_count,
+    )
     category_hint = _match_hint(message, CATEGORY_HINTS)
     season_hint = _match_hint(message, SEASON_HINTS)
 
@@ -316,6 +322,7 @@ def _heuristic_classification(message: str) -> GuardrailResult:
 
 
 def _from_model_payload(payload: dict) -> GuardrailResult | None:
+    settings = get_app_settings()
     domain = str(payload.get("domain", "")).strip().lower()
     intent = str(payload.get("intent", "")).strip().lower()
     confidence = str(payload.get("confidence", "low")).strip().lower() or "low"
@@ -333,9 +340,9 @@ def _from_model_payload(payload: dict) -> GuardrailResult | None:
             ],
         )
 
-    quantity = payload.get("requested_count", 4)
+    quantity = payload.get("requested_count", settings.default_result_count)
     if not isinstance(quantity, int):
-        quantity = 4
+        quantity = settings.default_result_count
 
     category_hint = str(payload.get("category_hint", "")).strip()
     season_hint = str(payload.get("season_hint", "")).strip()
@@ -363,7 +370,7 @@ def _from_model_payload(payload: dict) -> GuardrailResult | None:
         query_products=intent in {"product_recommendation", "inventory_lookup", "relationship_maintenance"} or customer_context,
         query_customers=intent in {"customer_filter", "relationship_maintenance"} or customer_context,
         query_tasks=intent == "task_management",
-        requested_count=max(1, min(quantity, 8)),
+        requested_count=max(1, min(quantity, settings.max_result_count)),
         category_hint=category_hint,
         season_hint=season_hint,
         customer_context=customer_context,

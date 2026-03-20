@@ -21,6 +21,17 @@ def test_guardrails_allow_semantic_product_query() -> None:
     assert result.season_hint == "夏天"
 
 
+def test_guardrails_default_requested_count_respects_config(monkeypatch) -> None:
+    monkeypatch.setenv("CRM_DEFAULT_RESULT_COUNT", "6")
+    guardrails_module.INTENT_CACHE.clear()
+
+    result = evaluate_message("帮我推荐几件适合通勤的衣服", "缦序")
+
+    assert result.allowed is True
+    assert result.intent == "product_recommendation"
+    assert result.requested_count == 6
+
+
 def test_guardrails_allow_relationship_maintenance_query() -> None:
     result = evaluate_message("我要维护一下乔安禾的客户关系", "缦序")
     assert result.allowed is True

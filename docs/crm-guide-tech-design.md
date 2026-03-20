@@ -78,6 +78,8 @@ React 工作台
 
 - `question_type`：内部问题类型，决定应该走哪类结果编排
 - `response_shape`：内部响应形态字符串，用于会话状态、回归测试和 explain 页面
+- `repeat_query_mode`：重复提问处理模式，当前取值为 `fresh / preserve / diversify`
+- `stability_mode`：当前结果的稳定性口径，区分实体稳定、换批刷新和文本可变
 - `conversation_mode`：当前对话所处工作模式，例如客户洞察、商品推荐、客户维护、话术整理
 - `handoff_reason`：为什么从上一轮模式切换到当前模式，供前端状态条和会话详情展示
 - `working_memory_summary`：当前工作记忆摘要，帮助缓存、解释页与长对话稳定回看
@@ -104,6 +106,10 @@ React 工作台
   - `focus_scope`
   - `handoff_reason`
   - `working_memory_summary`
+- 重复提问策略固定为：
+  - 同会话重复同一问题，默认 `preserve`
+  - 出现 `换一批 / 再来几件 / 看看别的` 等不满意信号时进入 `diversify`
+  - `diversify` 会沿用上一轮条件，但主动避开上一批实体结果
 - 继承规则采用“保守继承 + 明确切换”：
   - 代词追问只在上一轮明确锁定客户时继承
   - 用户命名新客户时立刻切换焦点
@@ -125,6 +131,17 @@ React 工作台
 | 客户标签总览 | `tag_group` |
 | 任务处理 | `task_list` 或 `workflow_checkpoint + task_list` |
 | 越界拒答 | `safety_notice` |
+
+### 3.9 去写死配置基线
+
+- 默认返回数量、客户总览样本数、维护场景商品数和快捷提示不再由服务代码直接写死
+- 上述策略统一由配置层提供，支持通过环境变量覆盖
+- 当前已完成第一批迁移：
+  - `CRM_DEFAULT_RESULT_COUNT`
+  - `CRM_MAX_RESULT_COUNT`
+  - `CRM_CUSTOMER_SAMPLE_LIMIT`
+  - `CRM_RELATIONSHIP_PRODUCT_LIMIT`
+  - `CRM_QUICK_PROMPTS`
 
 ### 3.8 分层记忆治理
 

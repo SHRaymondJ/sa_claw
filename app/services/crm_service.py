@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 
 from app.config import get_app_settings
@@ -146,6 +146,17 @@ CONVERSATION_MODE_LABELS = {
     "safety": "边界保护",
 }
 
+REPEAT_QUERY_DIVERSIFY_CUES = {
+    "换一批",
+    "换几个",
+    "再来几件",
+    "再来几款",
+    "还有别的",
+    "看看别的",
+    "换点别的",
+    "重新推荐",
+}
+
 
 @dataclass(frozen=True)
 class ChatDecision:
@@ -167,11 +178,7 @@ def get_bootstrap_payload() -> dict:
         "store_name": settings.store_name,
         "brand_name": settings.brand_name,
         "pending_task_count": pending,
-        "quick_prompts": [
-            "帮我找今天该优先跟进但还没联系的高净值客户",
-            "给偏好通勤西装的客户挑 3 款本周有货的单品",
-            "把今天到期还没完成的回访任务按优先级排一下",
-        ],
+        "quick_prompts": list(settings.quick_prompts),
     }
 
 
@@ -283,8 +290,9 @@ def _find_named_customer_ids(connection, message: str, limit: int = 1) -> list[s
 def _query_customer_candidates(
     connection,
     message: str,
-    limit: int = 4,
+    limit: int,
     customer_ids: list[str] | None = None,
+    exclude_ids: list[str] | None = None,
 ) -> list[dict]:
     base_query = """
         SELECT c.*, MIN(t.due_date) AS due_date, MAX(t.priority) AS task_priority, t.id AS task_id
@@ -303,6 +311,8 @@ def _query_customer_candidates(
     ranked = []
     for row in rows:
         customer = dict(row)
+        if exclude_ids and customer["id"] in exclude_ids:
+            continue
         tags = _fetch_customer_tags(connection, customer["id"])
         score = customer["lifetime_value"] // 800 + _tier_weight(customer["tier"]) * 2
         if "高净值" in message and "高净值" in tags:
@@ -342,13 +352,14 @@ def _query_customer_candidates(
 def _query_products(
     connection,
     message: str,
-    limit: int = 4,
+    limit: int,
     *,
     category_hint: str = "",
     season_hint: str = "",
     query_terms: list[str] | None = None,
     focus_customer: dict | None = None,
     memory_preferences: dict | None = None,
+    exclude_ids: list[str] | None = None,
 ) -> list[dict]:
     rows = connection.execute(
         """
@@ -363,6 +374,8 @@ def _query_products(
     ranked: list[tuple[int, dict]] = []
     for row in rows:
         product = dict(row)
+        if exclude_ids and product["id"] in exclude_ids:
+            continue
         style_tags = json.loads(product["style_tags"])
         preferred_categories = (
             set(json.loads(str(focus_customer["preferred_categories"])))
@@ -515,6 +528,7 @@ def _is_customer_preference_validation_request(message: str) -> bool:
 
 
 def _get_customer_pool_overview(connection) -> dict:
+    settings = get_app_settings()
     total = connection.execute("SELECT COUNT(*) FROM customers").fetchone()[0]
     tier_rows = connection.execute(
         """
@@ -527,7 +541,7 @@ def _get_customer_pool_overview(connection) -> dict:
     return {
         "total_customers": int(total),
         "tier_breakdown": [{"tier": str(row["tier"]), "count": int(row["count"])} for row in tier_rows],
-        "sample_limit": 4,
+        "sample_limit": settings.customer_sample_limit,
     }
 
 
@@ -1106,6 +1120,54 @@ def _build_working_memory_summary(
     return f"类型:{question_type} | 客户:{customer_name} | 关注:{query_focus} | 商品:{product_names} | 任务:{task_names} | 记忆:{memory_notes or '暂无'}"
 
 
+def _resolve_repeat_query_mode(message: str, normalized: str, current_state: dict) -> str:
+    previous_goal = _normalize_message(str(current_state.get("last_user_goal") or ""))
+    compact = message.replace(" ", "")
+    if any(cue in compact for cue in REPEAT_QUERY_DIVERSIFY_CUES):
+        return "diversify"
+    if previous_goal and previous_goal == normalized:
+        return "preserve"
+    return "fresh"
+
+
+def _rewrite_repeat_query_message(message: str, current_state: dict) -> str:
+    compact = message.replace(" ", "")
+    if not any(cue in compact for cue in REPEAT_QUERY_DIVERSIFY_CUES):
+        return message
+
+    intent = str(current_state.get("active_intent") or "")
+    customer_name = str(current_state.get("active_customer_name") or "")
+    style_focus = str(current_state.get("last_style_focus") or "")
+    focus_bits = "、".join(bit for bit in [customer_name, style_focus] if bit).strip("、")
+
+    if intent in {"product_recommendation", "relationship_maintenance", "message_draft", "inventory_lookup"}:
+        if focus_bits:
+            return f"按{focus_bits}再推荐几件别的商品"
+        return "再推荐几件别的商品"
+    if intent == "customer_filter":
+        return "再筛一批别的客户"
+    if intent == "task_management":
+        return "再整理一批别的待办任务"
+    return message
+
+
+def _resolve_stability_mode(question_type: str, repeat_query_mode: str) -> str:
+    if repeat_query_mode == "diversify":
+        return "entity_set_refresh"
+    if question_type in {"customer_filter", "customer_overview", "customer_constraint_filter", "category_inventory", "task_management", "task_management_with_trace"}:
+        return "entity_set_stable"
+    if question_type in {"product_recommendation", "customer_product_recommendation", "relationship_maintenance", "message_draft"}:
+        return "entity_stable_text_variable"
+    return "contextual"
+
+
+def _resolve_repeat_query_requested_count(current_state: dict, default: int) -> int:
+    active_product_ids = current_state.get("active_product_ids") or []
+    active_task_ids = current_state.get("active_task_ids") or []
+    last_entity_ids = current_state.get("last_entity_ids") or []
+    return len(active_product_ids) or len(active_task_ids) or len(last_entity_ids) or default
+
+
 def _build_response_meta(
     *,
     session_id: str,
@@ -1119,6 +1181,8 @@ def _build_response_meta(
     resolved_context,
     guardrail,
     clarification_needed: bool,
+    repeat_query_mode: str,
+    stability_mode: str,
 ) -> dict:
     next_state_version = int(current_state.get("state_version") or 0) + 1
     active_customer_id = focus_customer["id"] if focus_customer else resolved_context.active_customer_id
@@ -1150,6 +1214,8 @@ def _build_response_meta(
         "context_resolution": decision.context_resolution,
         "focus_scope": focus_scope,
         "clarification_needed": clarification_needed,
+        "repeat_query_mode": repeat_query_mode,
+        "stability_mode": stability_mode,
         "session_snapshot": session_snapshot,
     }
 
@@ -1157,10 +1223,7 @@ def _build_response_meta(
 def send_chat(message: str, session_id: str = None, *, actor: RequestActor | None = None) -> CRMChatResponse:
     settings = get_app_settings()
     current_session_id = session_id or f"s_{uuid.uuid4().hex[:10]}"
-    normalized = _normalize_message(message)
     current_actor = actor or RequestActor(advisor_id=settings.advisor_id, store_id=settings.store_id)
-
-    guardrail = evaluate_message(message, settings.brand_name)
     with get_connection() as connection:
         ensure_session(
             connection,
@@ -1171,8 +1234,17 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
             settings.store_name,
         )
         current_state = get_session_state(connection, current_session_id)
+        repeat_query_mode = _resolve_repeat_query_mode(message, _normalize_message(message), current_state)
+        route_message = _rewrite_repeat_query_message(message, current_state)
+        normalized = _normalize_message(route_message)
+        guardrail = evaluate_message(route_message, settings.brand_name)
+        if repeat_query_mode == "diversify":
+            guardrail = replace(
+                guardrail,
+                requested_count=_resolve_repeat_query_requested_count(current_state, guardrail.requested_count),
+            )
         provisional_cache_key = _build_cache_key(current_session_id, normalized, current_state)
-        cached = RESPONSE_CACHE.get(provisional_cache_key)
+        cached = RESPONSE_CACHE.get(provisional_cache_key) if repeat_query_mode == "fresh" else None
         if cached:
             return cached.model_copy(deep=True)
         if not guardrail.allowed:
@@ -1185,7 +1257,7 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
                 current_session_id,
                 workflow_name="safety",
                 workflow_stage="rejected",
-                user_goal=message[:160],
+                user_goal=route_message[:160],
                 assistant_summary=guardrail.reason[:160],
                 result_summary="已停止处理",
                 next_step="引导回到导购域问题。",
@@ -1202,7 +1274,7 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
                 resolution_confidence="high",
                 workflow_name="safety",
                 workflow_stage="rejected",
-                last_user_goal=message[:160],
+                last_user_goal=route_message[:160],
                 last_response_shape=QUESTION_TYPE_TO_RESPONSE_SHAPE["rejection"],
                 last_entity_ids=current_state.get("last_entity_ids") or [],
                 conversation_mode="safety",
@@ -1231,22 +1303,28 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
 
         add_turn(connection, current_session_id, "user", message, message[:80])
         summaries = get_recent_turn_summaries(connection, current_session_id)
-        named_customer_ids = _find_named_customer_ids(connection, message, limit=1)
+        named_customer_ids = _find_named_customer_ids(connection, route_message, limit=1)
         customer_lookup = _fetch_customer_name_map(connection, named_customer_ids)
         resolved_context = resolve_turn_context(
             connection,
             current_session_id,
-            message,
+            route_message,
             named_customer_ids=named_customer_ids,
             customer_lookup=customer_lookup,
         )
         resolved_customer_ids = [resolved_context.active_customer_id] if resolved_context.active_customer_id else []
-        customer_inventory_request = _is_customer_inventory_request(message)
-        category_inventory_request = _is_category_inventory_request(message)
-        customer_tag_inventory_request = _is_customer_tag_inventory_request(message)
-        customer_preference_request = _is_customer_preference_request(message)
-        customer_constraint_filter_request = _is_customer_constraint_filter_request(message)
-        customer_preference_validation_request = _is_customer_preference_validation_request(message)
+        customer_inventory_request = _is_customer_inventory_request(route_message)
+        category_inventory_request = _is_category_inventory_request(route_message)
+        customer_tag_inventory_request = _is_customer_tag_inventory_request(route_message)
+        customer_preference_request = _is_customer_preference_request(route_message)
+        customer_constraint_filter_request = _is_customer_constraint_filter_request(route_message)
+        customer_preference_validation_request = _is_customer_preference_validation_request(route_message)
+        excluded_product_ids = current_state.get("active_product_ids", []) if repeat_query_mode == "diversify" else []
+        excluded_customer_ids = (
+            current_state.get("last_entity_ids", [])
+            if repeat_query_mode == "diversify" and current_state.get("active_intent") == "customer_filter"
+            else []
+        )
 
         effective_query_tasks = guardrail.intent == "task_management"
         effective_query_customers = (
@@ -1256,7 +1334,7 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
         )
         effective_query_products = (
             guardrail.intent in {"product_recommendation", "inventory_lookup", "message_draft", "relationship_maintenance"}
-            or (is_relationship_maintenance_request(message) and bool(resolved_customer_ids))
+            or (is_relationship_maintenance_request(route_message) and bool(resolved_customer_ids))
         )
         if customer_constraint_filter_request and not resolved_customer_ids:
             effective_query_products = False
@@ -1264,9 +1342,16 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
         customer_candidates = (
             _query_customer_candidates(
                 connection,
-                message,
-                limit=1 if resolved_customer_ids else guardrail.requested_count,
+                route_message,
+                limit=(
+                    1
+                    if resolved_customer_ids
+                    else settings.customer_sample_limit
+                    if customer_inventory_request
+                    else guardrail.requested_count
+                ),
                 customer_ids=resolved_customer_ids or None,
+                exclude_ids=excluded_customer_ids or None,
             )
             if effective_query_customers
             else []
@@ -1276,7 +1361,7 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
             effective_query_products = False
         clarification_needed = _needs_customer_clarification(
             guardrail=guardrail,
-            message=message,
+            message=route_message,
             resolved_context=resolved_context,
             focus_customer=focus_customer,
         )
@@ -1285,13 +1370,18 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
         products = (
             _query_products(
                 connection,
-                message,
-                limit=min(guardrail.requested_count, 4) if guardrail.intent == "relationship_maintenance" else guardrail.requested_count,
+                route_message,
+                limit=(
+                    min(guardrail.requested_count, settings.relationship_product_limit)
+                    if guardrail.intent == "relationship_maintenance"
+                    else guardrail.requested_count
+                ),
                 category_hint=guardrail.category_hint,
                 season_hint=guardrail.season_hint,
                 query_terms=guardrail.query_terms or guardrail.style_terms,
                 focus_customer=focus_customer,
                 memory_preferences=memory_preferences,
+                exclude_ids=excluded_product_ids or None,
             )
             if effective_query_products
             else []
@@ -1299,27 +1389,27 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
         tasks = _query_tasks(connection, limit=guardrail.requested_count if effective_query_tasks else 0) if effective_query_tasks else []
         workflow = resolve_workflow(
             intent=guardrail.intent,
-            message=message,
+            message=route_message,
             focus_customer=focus_customer,
             products=products,
             tasks=tasks,
         )
         knowledge_briefs = retrieve_knowledge_briefs(
             connection,
-            message=message,
+            message=route_message,
             workflow_name=workflow.workflow_name,
             focus_customer=focus_customer,
             limit=3,
         )
         memory_note = extract_memory_note_update(
-            message,
+            route_message,
             focus_customer["name"] if focus_customer else resolved_context.active_customer_name,
         )
         memory_suggestion = extract_memory_suggestion(
-            message,
+            route_message,
             focus_customer["name"] if focus_customer else resolved_context.active_customer_name,
         )
-        memory_only_turn = _is_pure_memory_update_turn(message, memory_note)
+        memory_only_turn = _is_pure_memory_update_turn(route_message, memory_note)
         memory_conflict_note = ""
         decision = _build_decision(
             guardrail=guardrail,
@@ -1344,6 +1434,8 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
             focus_customer,
             resolved_context,
         )
+        if repeat_query_mode == "diversify":
+            handoff_reason = "用户明确要求换一批结果，当前在保留原条件的前提下返回新的候选。"
         working_memory_summary = _build_working_memory_summary(
             question_type=decision.question_type,
             focus_customer=focus_customer,
@@ -1400,7 +1492,7 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
                 components.append(
                     _build_workflow_checkpoint_component(
                         workflow=workflow,
-                        user_goal=message,
+                        user_goal=route_message,
                         focus_customer=focus_customer,
                         products=products[:4],
                         tasks=tasks[:4],
@@ -1421,7 +1513,7 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
                 components.append(
                     _build_workflow_checkpoint_component(
                         workflow=workflow,
-                        user_goal=message,
+                        user_goal=route_message,
                         focus_customer=None,
                         products=[],
                         tasks=[],
@@ -1439,14 +1531,14 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
             )
         elif decision.question_type in {"task_management", "task_management_with_trace"} and tasks:
             components.append(
-                _build_workflow_checkpoint_component(
-                    workflow=workflow,
-                    user_goal=message,
-                    focus_customer=None,
-                    products=[],
-                    tasks=tasks[:4],
+                    _build_workflow_checkpoint_component(
+                        workflow=workflow,
+                        user_goal=route_message,
+                        focus_customer=None,
+                        products=[],
+                        tasks=tasks[:4],
                         memory_bundle={},
-                )
+                    )
         )
         if knowledge_briefs and decision.question_type == "relationship_maintenance":
             components.append(_build_knowledge_briefs_component(knowledge_briefs))
@@ -1519,7 +1611,15 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
                         if focus_customer
                         else "可直接推荐的门店单品" if not guardrail.season_hint else f"{guardrail.season_hint}可优先推荐的门店单品"
                     ),
-                    props={"items": products[: (3 if guardrail.intent == "relationship_maintenance" else guardrail.requested_count)]},
+                    props={
+                        "items": products[
+                            : (
+                                settings.relationship_product_limit
+                                if guardrail.intent == "relationship_maintenance"
+                                else guardrail.requested_count
+                            )
+                        ]
+                    },
                 )
             )
         if decision.question_type in {"task_management", "task_management_with_trace"}:
@@ -1575,8 +1675,10 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
                 "先关怀再带一到两件更贴合的现货，避免一次推太满。"
             )
         elif decision.question_type == "customer_overview":
-            total_customers = _get_customer_pool_overview(connection)["total_customers"]
-            fallback_summary = f"当前门店共有 {total_customers} 位客户，先展示其中 4 位代表客户，后续可以继续按层级、标签和状态细分筛选。"
+            overview = _get_customer_pool_overview(connection)
+            total_customers = overview["total_customers"]
+            sample_limit = overview["sample_limit"]
+            fallback_summary = f"当前门店共有 {total_customers} 位客户，先展示其中 {sample_limit} 位代表客户，后续可以继续按层级、标签和状态细分筛选。"
         elif decision.question_type == "customer_tag_inventory":
             fallback_summary = "当前先展示客户池里最常见的一组标签，后续可以继续指定某位客户查看更细的偏好与服务记录。"
         elif decision.question_type == "category_inventory":
@@ -1661,7 +1763,7 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
         else:
             summary_text, _ = generate_assistant_brief(
                 intent_label,
-                message,
+                route_message,
                 summary_seed,
                 fallback_summary,
                 customer_name=focus_customer["name"] if focus_customer else "",
@@ -1671,7 +1773,7 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
                 observed_memory=(session_memory_summary or memory_conflict_note)[:140],
             )
             summary_text = _compact_assistant_summary(summary_text, fallback_summary)
-        if _should_include_trace(message):
+        if _should_include_trace(route_message):
             components.append(_build_trace_components(guardrail, len(customer_candidates) + len(products) + len(tasks)))
 
         assistant_message = CRMMessage(
@@ -1699,6 +1801,8 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
             resolved_context=resolved_context,
             guardrail=guardrail,
             clarification_needed=clarification_needed,
+            repeat_query_mode=repeat_query_mode,
+            stability_mode=_resolve_stability_mode(decision.question_type, repeat_query_mode),
         )
         response = CRMChatResponse(
             session_id=current_session_id,
@@ -1725,7 +1829,7 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
             current_session_id,
             workflow_name=workflow.workflow_name,
             workflow_stage=workflow.workflow_stage,
-            user_goal=message[:160],
+            user_goal=route_message[:160],
             assistant_summary=summary_text[:160],
             focus_customer_id=focus_customer["id"] if focus_customer else "",
             focus_customer_name=focus_customer["name"] if focus_customer else "",
@@ -1745,7 +1849,7 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
             resolution_confidence=resolved_context.resolution_confidence,
             workflow_name=workflow.workflow_name,
             workflow_stage=workflow.workflow_stage,
-            last_user_goal=message[:160],
+            last_user_goal=route_message[:160],
             last_response_shape=decision.response_shape,
             last_entity_ids=_dedupe_preserve_order(
                 [

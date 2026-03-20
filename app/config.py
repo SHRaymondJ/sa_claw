@@ -60,6 +60,36 @@ class AppSettings:
     advisor_name: str
     store_id: str
     store_name: str
+    default_result_count: int
+    max_result_count: int
+    customer_sample_limit: int
+    relationship_product_limit: int
+    quick_prompts: tuple[str, ...]
+
+
+def _get_int_env(name: str, default: int, *, minimum: int = 1, maximum: int = 12) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return max(minimum, min(value, maximum))
+
+
+def _parse_prompt_list(raw: str, defaults: tuple[str, ...]) -> tuple[str, ...]:
+    if not raw.strip():
+        return defaults
+
+    parts = [raw]
+    for separator in ("||", "\n"):
+        if separator in raw:
+            parts = raw.split(separator)
+            break
+
+    cleaned = tuple(item.strip() for item in parts if item.strip())
+    return cleaned or defaults
 
 
 def get_model_settings() -> ModelSettings:
@@ -82,6 +112,11 @@ def get_model_settings() -> ModelSettings:
 
 
 def get_app_settings() -> AppSettings:
+    default_prompts = (
+        "帮我找今天该优先跟进但还没联系的高净值客户",
+        "给偏好通勤西装的客户挑 3 款本周有货的单品",
+        "把今天到期还没完成的回访任务按优先级排一下",
+    )
     return AppSettings(
         db_path=Path(os.getenv("CRM_DB_PATH", BASE_DIR / "data" / "crm_demo.sqlite3")),
         frontend_dist=BASE_DIR / "frontend" / "dist",
@@ -90,4 +125,9 @@ def get_app_settings() -> AppSettings:
         advisor_name=os.getenv("CRM_ADVISOR_NAME", "林顾问"),
         store_id=os.getenv("CRM_STORE_ID", "store-sh-jingan"),
         store_name=os.getenv("CRM_STORE_NAME", "上海静安店"),
+        default_result_count=_get_int_env("CRM_DEFAULT_RESULT_COUNT", 4, minimum=1, maximum=8),
+        max_result_count=_get_int_env("CRM_MAX_RESULT_COUNT", 8, minimum=1, maximum=12),
+        customer_sample_limit=_get_int_env("CRM_CUSTOMER_SAMPLE_LIMIT", 4, minimum=1, maximum=12),
+        relationship_product_limit=_get_int_env("CRM_RELATIONSHIP_PRODUCT_LIMIT", 3, minimum=1, maximum=8),
+        quick_prompts=_parse_prompt_list(os.getenv("CRM_QUICK_PROMPTS", ""), default_prompts),
     )
