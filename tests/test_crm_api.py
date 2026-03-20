@@ -604,6 +604,46 @@ def test_detail_and_task_completion() -> None:
     assert product_response.json()["entity_type"] == "product"
 
 
+def test_task_completion_invalidates_cached_task_query() -> None:
+    RESPONSE_CACHE.clear()
+    with get_connection() as connection:
+        connection.execute("UPDATE follow_up_tasks SET status = 'open' WHERE id = 'T001'")
+        connection.commit()
+
+    first = client.post(
+        "/api/crm/chat/send",
+        json={"message": "把今天到期还没完成的回访任务按优先级排一下"},
+    )
+    assert first.status_code == 200
+    first_payload = first.json()
+    session_id = first_payload["session_id"]
+    first_task_component = next(
+        component for component in first_payload["ui_schema"] if component["component_type"] == "task_list"
+    )
+    first_task_ids = [item["id"] for item in first_task_component["props"]["items"]]
+    assert "T001" in first_task_ids
+
+    complete = client.post("/api/crm/tasks/T001/complete", headers=AUTH_HEADERS)
+    assert complete.status_code == 200
+
+    second = client.post(
+        "/api/crm/chat/send",
+        json={
+            "session_id": session_id,
+            "message": "把今天到期还没完成的回访任务按优先级排一下",
+        },
+    )
+    assert second.status_code == 200
+    second_payload = second.json()
+    second_task_component = next(
+        component for component in second_payload["ui_schema"] if component["component_type"] == "task_list"
+    )
+    second_task_ids = [item["id"] for item in second_task_component["props"]["items"]]
+
+    assert "T001" not in second_task_ids
+    assert second_payload["meta"]["repeat_query_mode"] in {"fresh", "preserve"}
+
+
 def test_session_detail_and_memory_suggestion_promotion_flow() -> None:
     RESPONSE_CACHE.clear()
     with get_connection() as connection:
