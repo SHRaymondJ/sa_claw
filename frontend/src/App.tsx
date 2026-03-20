@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useMemo, useState } from 'react'
+import { startTransition, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Route, Routes } from 'react-router-dom'
 import {
   BotMessageSquare,
@@ -18,7 +18,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import { dispatchAction } from '@/lib/action-registry'
 import type {
@@ -316,6 +315,7 @@ function WorkbenchPage() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
   const isDesktop = useMediaQuery('(min-width: 1024px)')
+  const messageViewportRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -336,6 +336,27 @@ function WorkbenchPage() {
   }, [])
 
   const statusText = useMemo(() => (loading ? '处理中' : '可继续提问'), [loading])
+
+  useEffect(() => {
+    const viewport = messageViewportRef.current
+    if (!viewport) {
+      return
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      if (typeof viewport.scrollTo === 'function') {
+        viewport.scrollTo({
+          top: viewport.scrollHeight,
+          behavior: 'smooth',
+        })
+        return
+      }
+
+      viewport.scrollTop = viewport.scrollHeight
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [messages, loading])
 
   function appendTaskCompletion(payload: TaskCompleteResponse) {
     setMessages((current) =>
@@ -421,9 +442,9 @@ function WorkbenchPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--canvas)]">
-      <div className="mx-auto flex min-h-screen max-w-[1480px] flex-col px-0 lg:grid lg:grid-cols-[minmax(0,1fr)_368px] lg:gap-5 lg:px-5 lg:py-5">
-        <main className="relative flex min-h-screen flex-col overflow-hidden border-x border-[var(--line)] bg-[var(--paper)] lg:min-h-0 lg:border lg:shadow-[var(--shadow-soft)]">
+    <div className="min-h-[100dvh] bg-[var(--canvas)]">
+      <div className="mx-auto flex min-h-[100dvh] max-w-[1480px] flex-col px-0 lg:grid lg:min-h-screen lg:grid-cols-[minmax(0,1fr)_368px] lg:gap-5 lg:px-5 lg:py-5">
+        <main className="relative flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden border-x border-[var(--line)] bg-[var(--paper)] lg:h-[calc(100vh-2.5rem)] lg:min-h-0 lg:border lg:shadow-[var(--shadow-soft)]">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(circle_at_top,rgba(196,180,154,0.32),transparent_62%)]" />
 
           <header className="relative border-b border-[var(--line)] bg-[linear-gradient(180deg,rgba(250,248,243,0.96),rgba(244,240,231,0.92))] px-4 py-5 backdrop-blur-sm md:px-6">
@@ -483,17 +504,26 @@ function WorkbenchPage() {
             </div>
           </div>
 
-          <ScrollArea className="min-h-0 flex-1">
-            <div className="space-y-4 px-4 py-5 md:px-6">
-              {messages.map((message) => (
-                <MessageBubble key={message.message_id} message={message} onAction={handleAction} />
-              ))}
-              {loading ? <PendingReplyCard /> : null}
+          <div className="relative min-h-0 flex-1 overflow-hidden">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-16 bg-[linear-gradient(180deg,rgba(251,248,242,0),rgba(251,248,242,0.94))]" />
+            <div
+              ref={messageViewportRef}
+              className="min-h-0 h-full overflow-y-auto overscroll-contain scroll-smooth"
+            >
+              <div className="space-y-4 px-4 py-5 pb-8 md:px-6 md:pb-10">
+                {messages.map((message) => (
+                  <MessageBubble key={message.message_id} message={message} onAction={handleAction} />
+                ))}
+                {loading ? <PendingReplyCard /> : null}
+              </div>
             </div>
-          </ScrollArea>
+          </div>
 
-          <footer className="border-t border-[var(--line)] bg-[linear-gradient(180deg,rgba(250,248,243,0.96),rgba(252,251,247,1))] px-4 py-4 md:px-6">
-            <div className="soft-panel p-3 md:p-4">
+          <footer
+            data-testid="composer-shell"
+            className="z-20 shrink-0 border-t border-[var(--line)] bg-[linear-gradient(180deg,rgba(250,248,243,0.88),rgba(252,251,247,0.98))] px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-[0_-16px_36px_rgba(24,18,12,0.08)] backdrop-blur-xl md:px-6 md:py-4"
+          >
+            <div className="soft-panel border-[var(--line-strong)] bg-[linear-gradient(180deg,rgba(255,255,255,0.72),rgba(248,244,236,0.94))] p-3 md:p-4">
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
                   <div>
@@ -510,7 +540,7 @@ function WorkbenchPage() {
                 <Textarea
                   value={value}
                   onChange={(event) => setValue(event.target.value)}
-                  className="border-0 bg-transparent px-0 py-0 text-[15px] focus:border-0"
+                  className="min-h-[104px] resize-none border-0 bg-transparent px-0 py-0 text-[15px] leading-7 focus:border-0 focus-visible:ring-0"
                   placeholder="例如：帮我找今天该优先跟进但还没联系的高净值客户"
                 />
                 <div className="flex items-center justify-between gap-4 border-t border-[var(--line)] pt-3">

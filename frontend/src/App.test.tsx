@@ -74,6 +74,7 @@ describe('App', () => {
       expect(screen.getByText('缦序 导购席位')).toBeInTheDocument()
     })
     expect(screen.getByText('帮我找重点客户')).toBeInTheDocument()
+    expect(screen.getByTestId('composer-shell')).toBeVisible()
   })
 
   it('shows a pending response shell while sending a message', async () => {

@@ -70,6 +70,17 @@ def _fetch_product_names(connection, product_ids: list[str]) -> list[str]:
     return [row["name"] for row in rows]
 
 
+def _dedupe_preserve_order(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for item in items:
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        ordered.append(item)
+    return ordered
+
+
 def _query_customer_candidates(connection, message: str, limit: int = 4) -> list[dict]:
     rows = connection.execute(
         """
@@ -138,6 +149,7 @@ def _query_products(
     ranked: list[tuple[int, dict]] = []
     for row in rows:
         product = dict(row)
+        style_tags = json.loads(product["style_tags"])
         haystack = " ".join(
             [
                 product["name"],
@@ -146,25 +158,37 @@ def _query_products(
                 product["collection_name"],
                 product["summary"],
                 product["color"],
-                " ".join(json.loads(product["style_tags"])),
+                " ".join(style_tags),
             ]
         )
 
         score = product["store_stock"] * 2 + product["warehouse_stock"]
+        reason_bits: list[str] = []
+        matched_terms: list[str] = []
         if category_hint and product["category"] == category_hint:
             score += 18
+            reason_bits.append(f"命中你要的 {category_hint} 品类")
         if season_hint and season_hint in {"夏天", "春天"} and "春夏" in product["collection_name"]:
             score += 10
+            reason_bits.append(f"属于 {product['collection_name']}，适合 {season_hint} 场景")
         if "夏天" in message and any(token in haystack for token in ["春夏", "轻", "通勤"]):
             score += 8
+            reason_bits.append("材质和系列更适合夏季穿着")
 
         for term in terms:
             if term and term in haystack:
                 score += 6
+                matched_terms.append(term)
 
         if "衣服" in message and product["category"] in {"西装", "衬衫", "针织", "风衣", "半裙", "连衣裙", "牛仔", "外套"}:
             score += 4
+        if product["store_stock"] > 0:
+            reason_bits.append(f"门店现货 {product['store_stock']} 件")
         ranked.append((score, product))
+
+        product["match_terms"] = _dedupe_preserve_order(matched_terms)
+        product["display_tags"] = _dedupe_preserve_order([*matched_terms, *style_tags[:2], product["color"]])[:4]
+        product["match_reason"] = "；".join(_dedupe_preserve_order(reason_bits)[:3]) or product["summary"]
 
     ranked.sort(key=lambda item: (item[0], item[1]["price"]), reverse=True)
     items = []
@@ -179,6 +203,9 @@ def _query_products(
                 "availability": product["availability"],
                 "image_url": product["image_url"],
                 "summary": product["summary"],
+                "match_reason": product["match_reason"],
+                "display_tags": product["display_tags"],
+                "match_terms": product["match_terms"],
                 "store_stock": product["store_stock"],
                 "warehouse_stock": product["warehouse_stock"],
             }
@@ -201,15 +228,25 @@ def _query_tasks(connection, limit: int = 5) -> list[dict]:
     return [dict(row) for row in rows]
 
 
-def _build_trace_components(intent_label: str, entity_count: int) -> CRMComponent:
+def _build_trace_components(guardrail, entity_count: int) -> CRMComponent:
+    interpretation_bits = [guardrail.intent_label]
+    if guardrail.requested_count:
+        interpretation_bits.append(f"数量 {guardrail.requested_count}")
+    if guardrail.category_hint:
+        interpretation_bits.append(f"品类 {guardrail.category_hint}")
+    if guardrail.season_hint:
+        interpretation_bits.append(f"季节 {guardrail.season_hint}")
+    if guardrail.style_terms:
+        interpretation_bits.append(f"风格 {'、'.join(guardrail.style_terms[:3])}")
+
     return CRMComponent(
         component_type="trace_timeline",
         component_id=f"trace-{uuid.uuid4().hex[:8]}",
         title="处理轨迹",
         props={
             "items": [
-                {"label": "识别需求范围", "detail": f"归类为 {intent_label}"},
-                {"label": "检索门店数据", "detail": f"命中 {entity_count} 条候选记录"},
+                {"label": "识别需求范围", "detail": "，".join(interpretation_bits)},
+                {"label": "检索门店数据", "detail": f"仅在门店数据库内检索，命中 {entity_count} 条候选记录"},
                 {"label": "整理可执行建议", "detail": "输出客户、商品、任务和沟通建议"},
             ]
         },
@@ -351,7 +388,7 @@ def send_chat(message: str, session_id: str = None) -> CRMChatResponse:
         )
         fallback_summary = "已按门店现有客户、商品和任务数据整理出一组可直接执行的跟进建议。"
         summary_text, _ = generate_assistant_brief(intent_label, message, summary_seed, fallback_summary)
-        components.append(_build_trace_components(intent_label, len(customer_candidates) + len(products) + len(tasks)))
+        components.append(_build_trace_components(guardrail, len(customer_candidates) + len(products) + len(tasks)))
 
         assistant_message = CRMMessage(
             message_id=f"assistant-{uuid.uuid4().hex[:8]}",

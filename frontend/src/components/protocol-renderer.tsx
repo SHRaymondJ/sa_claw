@@ -141,6 +141,12 @@ function RenderProductGrid({ component, onAction }: RendererProps) {
                   <span className="font-medium text-[var(--ink)]">¥{String(item.price)}</span>
                   <Badge variant="accent">{String(item.availability)}</Badge>
                 </div>
+                <p className="text-sm leading-6 text-[var(--muted)]">{String(item.match_reason ?? item.summary ?? '')}</p>
+                <div className="flex flex-wrap gap-2">
+                  {((item.display_tags as string[]) ?? []).map((tag) => (
+                    <Badge key={`${productId}-${tag}`}>{tag}</Badge>
+                  ))}
+                </div>
               </div>
               <div className="flex items-center justify-between gap-3 border-t border-[var(--line)] pt-3 text-sm text-[var(--muted)]">
                 <span>点击查看尺码、库存与推荐搭配</span>

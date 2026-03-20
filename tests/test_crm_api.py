@@ -47,6 +47,10 @@ def test_semantic_product_query_flow() -> None:
     product_component = next(component for component in data["ui_schema"] if component["component_type"] == "product_grid")
     assert len(product_component["props"]["items"]) == 5
     assert "夏天" in product_component["title"]
+    assert product_component["props"]["items"][0]["match_reason"]
+    assert product_component["props"]["items"][0]["display_tags"]
+    trace_component = next(component for component in data["ui_schema"] if component["component_type"] == "trace_timeline")
+    assert "季节 夏天" in trace_component["props"]["items"][0]["detail"]
 
 
 def test_rejection_flow() -> None:

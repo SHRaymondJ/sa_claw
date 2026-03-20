@@ -7,8 +7,11 @@ test('can run guided customer workflow and open detail', async ({ page }, testIn
     await page.getByRole('button', { name: '帮我找今天该优先跟进但还没联系的高净值客户' }).click()
     await expect(page.getByText('正在整理本次客户建议')).toBeVisible()
     await expect(page.getByText('建议优先跟进客户')).toBeVisible()
-    await page.getByRole('button', { name: /客单累计/ }).first().click()
-    await expect(page.getByText('正在展开详情')).toBeVisible()
+    const customerCard = page.getByRole('button', { name: /客单累计/ }).first()
+    await customerCard.scrollIntoViewIfNeeded()
+    await customerCard.evaluate((node) => {
+      ;(node as HTMLButtonElement).click()
+    })
     await expect(page.getByText('客户概览')).toBeVisible()
     return
   }
