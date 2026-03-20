@@ -141,6 +141,32 @@ img {
   box-shadow: var(--shadow-soft);
 }
 
+.compact-stat-card {
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0)),
+    rgba(251, 248, 242, 0.9);
+  padding: 10px 12px;
+  box-shadow: var(--shadow-soft);
+}
+
+.compact-stat-label {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+}
+
+.compact-stat-value {
+  display: block;
+  margin-top: 8px;
+  font-family: "Noto Serif SC", serif;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink);
+}
+
 .hero-stat-label {
   font-size: 11px;
   text-transform: uppercase;
@@ -176,6 +202,13 @@ img {
     background-color 180ms ease,
     border-color 180ms ease,
     box-shadow 180ms ease;
+}
+
+@media (max-width: 767px) {
+  .prompt-chip {
+    min-width: 148px;
+    padding: 8px 10px;
+  }
 }
 
 .prompt-chip:hover {
