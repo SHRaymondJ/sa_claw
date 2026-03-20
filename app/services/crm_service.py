@@ -631,6 +631,7 @@ def _build_workflow_checkpoint_component(
     tasks: list[dict],
     memory_bundle: dict,
 ) -> CRMComponent:
+    settings = get_app_settings()
     customer_name = focus_customer["name"] if focus_customer else "未锁定客户"
     memory_count = len(memory_bundle.get("memory_notes", []))
     result_summary = f"客户 {1 if focus_customer else 0} · 商品 {len(products)} · 任务 {len(tasks)}"
@@ -652,7 +653,7 @@ def _build_workflow_checkpoint_component(
             "customer_name": customer_name,
             "user_goal": user_goal,
             "result_summary": result_summary,
-            "notes": notes[:4],
+            "notes": notes[: settings.workflow_note_limit],
         },
     )
 
@@ -829,6 +830,7 @@ def _build_action_result_notice_component(*, title: str, message: str, status: s
 
 
 def _build_customer_insight_components(connection, focus_customer: dict, memory_bundle: dict) -> list[CRMComponent]:
+    settings = get_app_settings()
     preferred_colors = json.loads(str(focus_customer.get("preferred_colors") or "[]"))
     preferred_categories = json.loads(str(focus_customer.get("preferred_categories") or "[]"))
     tags = _fetch_customer_tags(connection, focus_customer["id"])
@@ -874,7 +876,7 @@ def _build_customer_insight_components(connection, focus_customer: dict, memory_
                             "source": "导购补充" if item["source"] == "advisor-chat" else "历史沉淀",
                             "confidence": item["confidence"],
                         }
-                        for item in memory_notes[:4]
+                        for item in memory_notes[: settings.memory_brief_limit]
                     ]
                 },
             )
@@ -1899,6 +1901,7 @@ def send_chat(message: str, session_id: str = None, *, actor: RequestActor | Non
 
 
 def get_customer_detail(customer_id: str) -> EntityDetailResponse:
+    settings = get_app_settings()
     with get_connection() as connection:
         row = row_to_dict(
             connection.execute("SELECT * FROM customers WHERE id = ?", (customer_id,)).fetchone()
@@ -1980,7 +1983,7 @@ def get_customer_detail(customer_id: str) -> EntityDetailResponse:
                             "source": "导购补充" if item["source"] == "advisor-chat" else "历史沉淀",
                             "confidence": item["confidence"],
                         }
-                        for item in memory_notes
+                        for item in memory_notes[: settings.memory_brief_limit]
                     ]
                 },
             ),

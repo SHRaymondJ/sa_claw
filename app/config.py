@@ -64,6 +64,8 @@ class AppSettings:
     max_result_count: int
     customer_sample_limit: int
     relationship_product_limit: int
+    workflow_note_limit: int
+    memory_brief_limit: int
     quick_prompts: tuple[str, ...]
 
 
@@ -129,5 +131,7 @@ def get_app_settings() -> AppSettings:
         max_result_count=_get_int_env("CRM_MAX_RESULT_COUNT", 8, minimum=1, maximum=12),
         customer_sample_limit=_get_int_env("CRM_CUSTOMER_SAMPLE_LIMIT", 4, minimum=1, maximum=12),
         relationship_product_limit=_get_int_env("CRM_RELATIONSHIP_PRODUCT_LIMIT", 3, minimum=1, maximum=8),
+        workflow_note_limit=_get_int_env("CRM_WORKFLOW_NOTE_LIMIT", 4, minimum=1, maximum=8),
+        memory_brief_limit=_get_int_env("CRM_MEMORY_BRIEF_LIMIT", 4, minimum=1, maximum=8),
         quick_prompts=_parse_prompt_list(os.getenv("CRM_QUICK_PROMPTS", ""), default_prompts),
     )

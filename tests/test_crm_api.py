@@ -464,6 +464,21 @@ def test_relationship_maintenance_snapshot_matches_visible_product_count() -> No
     ]
 
 
+def test_workflow_checkpoint_note_limit_respects_config(monkeypatch) -> None:
+    RESPONSE_CACHE.clear()
+    monkeypatch.setenv("CRM_WORKFLOW_NOTE_LIMIT", "2")
+
+    response = client.post(
+        "/api/crm/chat/send",
+        json={"message": "我要维护一下乔安禾的客户关系"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+
+    workflow_component = next(component for component in payload["ui_schema"] if component["component_type"] == "workflow_checkpoint")
+    assert len(workflow_component["props"]["notes"]) == 2
+
+
 def test_product_recommendation_snapshot_tracks_all_visible_products() -> None:
     RESPONSE_CACHE.clear()
 
@@ -480,6 +495,17 @@ def test_product_recommendation_snapshot_tracks_all_visible_products() -> None:
     assert len(visible_ids) == 6
     assert payload["meta"]["focus_scope"]["product_ids"] == visible_ids
     assert payload["meta"]["session_snapshot"]["last_entity_ids"] == visible_ids
+
+
+def test_customer_memory_brief_limit_respects_config(monkeypatch) -> None:
+    monkeypatch.setenv("CRM_MEMORY_BRIEF_LIMIT", "2")
+
+    response = client.get("/api/crm/customers/C285")
+    assert response.status_code == 200
+    payload = response.json()
+
+    memory_component = next(component for component in payload["ui_schema"] if component["component_type"] == "memory_briefs")
+    assert len(memory_component["props"]["items"]) == 2
 
 
 def test_rejection_flow() -> None:
