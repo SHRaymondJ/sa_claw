@@ -30,6 +30,27 @@ describe('ProtocolRenderer', () => {
     expect(screen.getByText('高净值 52')).toBeInTheDocument()
   })
 
+  it('does not invent a demo sample count when sample_limit is absent', () => {
+    render(
+      <ProtocolRenderer
+        component={{
+          component_type: 'customer_overview',
+          component_id: 'customer-overview-2',
+          title: '门店客户概览',
+          props: {
+            total_customers: 360,
+            tier_breakdown: [{ tier: '高净值', count: 52 }],
+          },
+          actions: [],
+        }}
+        onAction={() => {}}
+      />,
+    )
+
+    expect(screen.getByText('当前展示代表客户样本')).toBeInTheDocument()
+    expect(screen.queryByText('当前先展示 4 位代表客户')).not.toBeInTheDocument()
+  })
+
   it('renders category overview instead of individual product cards', () => {
     render(
       <ProtocolRenderer

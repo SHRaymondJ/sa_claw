@@ -136,6 +136,7 @@ function RenderCustomerList({ component, onAction }: RendererProps) {
 
 function RenderCustomerOverview({ component }: { component: UIComponent }) {
   const tierBreakdown = (component.props.tier_breakdown as Array<Record<string, unknown>>) ?? []
+  const sampleLimit = component.props.sample_limit
   return (
     <SectionFrame title={component.title} eyebrow="客户盘点">
       <div className="grid gap-px bg-[var(--line)] md:grid-cols-[180px_minmax(0,1fr)]">
@@ -145,7 +146,7 @@ function RenderCustomerOverview({ component }: { component: UIComponent }) {
             {String(component.props.total_customers ?? '--')}
           </p>
           <p className="mt-2 text-[12px] leading-5 text-[var(--muted)]">
-            当前先展示 {String(component.props.sample_limit ?? 4)} 位代表客户
+            {sampleLimit == null ? '当前展示代表客户样本' : `当前先展示 ${String(sampleLimit)} 位代表客户`}
           </p>
         </div>
         <div className="bg-[var(--paper)] px-4 py-3">
