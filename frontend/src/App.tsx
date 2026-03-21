@@ -233,11 +233,13 @@ function EmptyWorkbenchState({
   prompts,
   onSelectPrompt,
   onOpenCustomer,
+  previewEnabled,
 }: {
   isDesktop: boolean
   prompts: string[]
   onSelectPrompt: (prompt: string) => void
   onOpenCustomer: () => void
+  previewEnabled: boolean
 }) {
   const previewPrompts = prompts.slice(0, 2)
 
@@ -250,12 +252,13 @@ function EmptyWorkbenchState({
           </div>
           <button
             type="button"
-            className="w-full border border-[var(--line-strong)] bg-[var(--paper)] px-3 py-2.5 text-left transition-colors hover:bg-[var(--surface)]"
+            className="w-full border border-[var(--line-strong)] bg-[var(--paper)] px-3 py-2.5 text-left transition-colors hover:bg-[var(--surface)] disabled:cursor-not-allowed disabled:border-[var(--line)] disabled:text-[var(--muted)] disabled:hover:bg-[var(--paper)]"
             onClick={onOpenCustomer}
+            disabled={!previewEnabled}
           >
-            <p className="text-[12px] font-medium text-[var(--ink)]">结果摘要</p>
+            <p className="text-[12px] font-medium text-[var(--ink)]">详情预览</p>
             <p className="mt-1.5 text-[12px] leading-5 text-[var(--ink)]">
-              首轮结果会优先展示在聊天区
+              当前结果会优先展示在聊天区
               <br />
               右侧详情区用于核对实体信息、任务状态和后续动作。
             </p>
@@ -283,9 +286,10 @@ function EmptyWorkbenchState({
         ) : null}
         <button
           type="button"
-          aria-label="查看推荐客户详情"
-          className="w-full border border-[var(--line-strong)] bg-[var(--paper)] px-3 py-3 text-left transition-colors hover:bg-[var(--surface)]"
+          aria-label="查看详情预览"
+          className="w-full border border-[var(--line-strong)] bg-[var(--paper)] px-3 py-3 text-left transition-colors hover:bg-[var(--surface)] disabled:cursor-not-allowed disabled:border-[var(--line)] disabled:text-[var(--muted)] disabled:hover:bg-[var(--paper)]"
           onClick={onOpenCustomer}
+          disabled={!previewEnabled}
         >
           <p className="text-[12px] font-medium text-[var(--ink)]">结果预览</p>
           <p className="mt-2 text-[13px] leading-6 text-[var(--ink)]">
@@ -415,22 +419,29 @@ function ConversationStatusBar({
   )
 }
 
-function DesktopPreviewSidebar({ onOpenCustomer }: { onOpenCustomer: () => void }) {
+function DesktopPreviewSidebar({
+  onOpenCustomer,
+  previewEnabled,
+}: {
+  onOpenCustomer: () => void
+  previewEnabled: boolean
+}) {
   return (
     <aside className="hidden border-l border-[var(--line)] bg-[var(--paper)] lg:block">
       <div className="h-full px-4 py-3.5">
         <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--muted)]">详情区</p>
         <button
           type="button"
-          aria-label="查看默认客户详情"
-          className="mt-3 w-full border border-[var(--line)] bg-[var(--paper)] px-3 py-3 text-left transition-colors hover:bg-[var(--surface)]"
+          aria-label="查看详情预览"
+          className="mt-3 w-full border border-[var(--line)] bg-[var(--paper)] px-3 py-3 text-left transition-colors hover:bg-[var(--surface)] disabled:cursor-not-allowed disabled:text-[var(--muted)] disabled:hover:bg-[var(--paper)]"
           onClick={onOpenCustomer}
+          disabled={!previewEnabled}
         >
-          <p className="text-[15px] font-medium leading-6 text-[var(--ink)]">默认详情入口</p>
+          <p className="text-[15px] font-medium leading-6 text-[var(--ink)]">详情预览入口</p>
           <p className="mt-1.5 text-[12px] leading-5 text-[var(--ink)]">
             当前右侧用于承接客户、商品、任务与会话详情
             <br />
-            实际结果生成后，可直接从聊天卡片进入对应实体
+            在还没有真实结果前，也可以先打开一位代表客户预览详情结构
             <br />
             这里保持常驻，便于核对信息与执行动作。
           </p>
@@ -907,6 +918,7 @@ function WorkbenchPage() {
                     prompts={bootstrap?.quick_prompts ?? []}
                     onSelectPrompt={(prompt) => void handleSend(prompt)}
                     onOpenCustomer={() => void openDefaultCustomerPreview()}
+                    previewEnabled={Boolean(previewCustomerId)}
                   />
                 ) : (
                   <div className="space-y-3 px-4 py-3 pb-4 md:space-y-3.5 md:px-5 md:py-4 md:pb-5">
@@ -1017,7 +1029,10 @@ function WorkbenchPage() {
             />
           </aside>
         ) : (
-          <DesktopPreviewSidebar onOpenCustomer={() => void openDefaultCustomerPreview()} />
+          <DesktopPreviewSidebar
+            onOpenCustomer={() => void openDefaultCustomerPreview()}
+            previewEnabled={Boolean(previewCustomerId)}
+          />
         ) : null}
       </div>
 

@@ -157,6 +157,7 @@ describe('App', () => {
     expect(screen.queryByText('缦序 导购席位')).not.toBeInTheDocument()
     expect(screen.queryByText(/林顾问/)).not.toBeInTheDocument()
     expect(screen.getByText(/信息待同步/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '查看详情预览' })).toBeDisabled()
   })
 
   it('shows a pending response shell while sending a message', async () => {
@@ -264,7 +265,7 @@ describe('App', () => {
     )
 
     await screen.findByText('缦序 导购席位')
-    await user.click(screen.getByRole('button', { name: '查看推荐客户详情' }))
+    await user.click(screen.getByRole('button', { name: '查看详情预览' }))
 
     await waitFor(() => {
       expect(getCustomerDetail).toHaveBeenCalledWith('C245')
