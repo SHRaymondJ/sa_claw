@@ -252,9 +252,9 @@ function EmptyWorkbenchState({
           >
             <p className="text-[12px] font-medium text-[var(--ink)]">结果摘要</p>
             <p className="mt-1.5 text-[12px] leading-5 text-[var(--ink)]">
-              推荐客户 3 人 · 有货商品 4 款 · 待执行任务 2 条
+              首轮结果会优先展示在聊天区
               <br />
-              聊天区优先承载本轮判断，详情在右侧查看。
+              右侧详情区用于核对实体信息、任务状态和后续动作。
             </p>
           </button>
         </div>
@@ -284,11 +284,11 @@ function EmptyWorkbenchState({
           className="w-full border border-[var(--line-strong)] bg-[var(--paper)] px-3 py-3 text-left transition-colors hover:bg-[var(--surface)]"
           onClick={onOpenCustomer}
         >
-          <p className="text-[12px] font-medium text-[var(--ink)]">推荐客户</p>
+          <p className="text-[12px] font-medium text-[var(--ink)]">结果预览</p>
           <p className="mt-2 text-[13px] leading-6 text-[var(--ink)]">
-            林知夏 · 黑金 · 今天优先
+            首轮建议生成后，可从结果卡片打开详情
             <br />
-            打开客户详情后可直接发送私聊草稿
+            继续查看客户信息、跟进任务和沟通草稿
           </p>
         </button>
       </div>
@@ -423,13 +423,13 @@ function DesktopPreviewSidebar({ onOpenCustomer }: { onOpenCustomer: () => void 
           className="mt-3 w-full border border-[var(--line)] bg-[var(--paper)] px-3 py-3 text-left transition-colors hover:bg-[var(--surface)]"
           onClick={onOpenCustomer}
         >
-          <p className="text-[15px] font-medium leading-6 text-[var(--ink)]">林知夏</p>
+          <p className="text-[15px] font-medium leading-6 text-[var(--ink)]">默认详情入口</p>
           <p className="mt-1.5 text-[12px] leading-5 text-[var(--ink)]">
-            黑金会员 · 近 30 天浏览通勤西装 5 次
+            当前右侧用于承接客户、商品、任务与会话详情
             <br />
-            建议动作：优先私聊 + 引导试穿预约
+            实际结果生成后，可直接从聊天卡片进入对应实体
             <br />
-            这里保持常驻，便于核对实体信息与执行动作。
+            这里保持常驻，便于核对信息与执行动作。
           </p>
         </button>
       </div>

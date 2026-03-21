@@ -92,6 +92,8 @@ describe('App', () => {
       expect(screen.getByText('缦序 导购席位')).toBeInTheDocument()
     })
     expect(screen.getByText('帮我找重点客户')).toBeInTheDocument()
+    expect(screen.queryByText(/推荐客户 3 人/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/林知夏/)).not.toBeInTheDocument()
     expect(screen.getByTestId('composer-shell')).toBeVisible()
   })
 
