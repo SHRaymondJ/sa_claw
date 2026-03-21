@@ -31,6 +31,7 @@ def test_bootstrap_and_chat_flow() -> None:
     payload = bootstrap_response.json()
     assert payload["advisor_name"]
     assert payload["pending_task_count"] >= 0
+    assert payload["preview_customer_id"]
 
     chat_response = client.post(
         "/api/crm/chat/send",

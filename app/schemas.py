@@ -99,3 +99,4 @@ class BootstrapResponse(BaseModel):
     brand_name: str
     pending_task_count: int
     quick_prompts: list[str]
+    preview_customer_id: Optional[str] = None

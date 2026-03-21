@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { render, screen, waitFor } from '@testing-library/react'
 
 import App from '@/App'
-import { getBootstrap, sendChat } from '@/lib/api'
+import { getBootstrap, getCustomerDetail, sendChat } from '@/lib/api'
 
 vi.mock('@/lib/api', () => ({
   APIError: class APIError extends Error {
@@ -23,9 +23,17 @@ vi.mock('@/lib/api', () => ({
     brand_name: '缦序',
     pending_task_count: 7,
     quick_prompts: ['帮我找重点客户'],
+    preview_customer_id: 'C001',
   }),
   sendChat: vi.fn(),
-  getCustomerDetail: vi.fn(),
+  getCustomerDetail: vi.fn().mockResolvedValue({
+    entity_type: 'customer',
+    entity_id: 'C001',
+    title: '乔知夏',
+    subtitle: '重点客户',
+    summary: '客户详情',
+    ui_schema: [],
+  }),
   getSessionDetail: vi.fn(),
   getProductDetail: vi.fn(),
   getTaskDetail: vi.fn(),
@@ -48,6 +56,7 @@ describe('App', () => {
       brand_name: string
       pending_task_count: number
       quick_prompts: string[]
+      preview_customer_id?: string | null
     }) => void)
 
     vi.mocked(getBootstrap).mockReturnValueOnce(
@@ -72,8 +81,9 @@ describe('App', () => {
           store_name: '上海静安店',
           brand_name: '缦序',
           pending_task_count: 7,
-        quick_prompts: ['帮我找重点客户'],
-      })
+          quick_prompts: ['帮我找重点客户'],
+          preview_customer_id: 'C001',
+        })
     }
 
     await waitFor(() => {
@@ -106,6 +116,7 @@ describe('App', () => {
       brand_name: '缦序',
       pending_task_count: 7,
       quick_prompts: ['帮我找重点客户', '看看通勤西装'],
+      preview_customer_id: 'C001',
     })
 
     render(
@@ -131,6 +142,7 @@ describe('App', () => {
       brand_name: '',
       pending_task_count: 0,
       quick_prompts: ['帮我找重点客户'],
+      preview_customer_id: null,
     })
 
     render(
@@ -222,6 +234,41 @@ describe('App', () => {
     expect(screen.getByText('当前任务类型')).toBeInTheDocument()
     expect(screen.getAllByText('筛优先客户').length).toBeGreaterThan(0)
     expect(screen.getByText(/本轮切换原因/)).toBeInTheDocument()
+  })
+
+  it('opens the bootstrap-provided preview customer instead of a fixed demo id', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getBootstrap).mockResolvedValueOnce({
+      advisor_id: 'advisor-demo-001',
+      advisor_name: '林顾问',
+      store_id: 'store-sh-jingan',
+      store_name: '上海静安店',
+      brand_name: '缦序',
+      pending_task_count: 7,
+      quick_prompts: ['帮我找重点客户'],
+      preview_customer_id: 'C245',
+    })
+    vi.mocked(getCustomerDetail).mockResolvedValueOnce({
+      entity_type: 'customer',
+      entity_id: 'C245',
+      title: '周若汐',
+      subtitle: '高潜客户',
+      summary: '客户详情',
+      ui_schema: [],
+    })
+
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>,
+    )
+
+    await screen.findByText('缦序 导购席位')
+    await user.click(screen.getByRole('button', { name: '查看推荐客户详情' }))
+
+    await waitFor(() => {
+      expect(getCustomerDetail).toHaveBeenCalledWith('C245')
+    })
   })
 
   it('shows retry notice when sending fails', async () => {

@@ -46,6 +46,7 @@ export type BootstrapResponse = {
   brand_name: string
   pending_task_count: number
   quick_prompts: string[]
+  preview_customer_id?: string | null
 }
 
 export type ExplainSection = {

@@ -58,6 +58,17 @@ React 工作台
 - `safety_status`
 - `context_version`
 
+bootstrap 字段当前至少包含：
+
+- `advisor_id`
+- `advisor_name`
+- `store_id`
+- `store_name`
+- `brand_name`
+- `pending_task_count`
+- `quick_prompts`
+- `preview_customer_id`
+
 ### 3.3 意图网关
 
 第一层先做规则判断：
@@ -166,6 +177,9 @@ React 工作台
 - 当前已完成第七批迁移：
   - `CRM_MUTATION_RATE_LIMIT`
   - `CRM_MUTATION_RATE_WINDOW_SECONDS`
+- 当前已完成第八批清理：
+  - 空状态客户详情入口不再写死 `C001`
+  - bootstrap 新增 `preview_customer_id`，前端按真实客户 ID 打开默认预览详情
 
 ### 3.8 分层记忆治理
 

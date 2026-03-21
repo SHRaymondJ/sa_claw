@@ -171,6 +171,25 @@ def get_bootstrap_payload() -> dict:
         pending = connection.execute(
             "SELECT COUNT(*) FROM follow_up_tasks WHERE status = 'open'"
         ).fetchone()[0]
+        preview_customer_row = connection.execute(
+            """
+            SELECT id
+            FROM customers
+            WHERE store_name = ?
+            ORDER BY
+                CASE tier
+                    WHEN '黑金' THEN 1
+                    WHEN '高潜' THEN 2
+                    WHEN '重点' THEN 3
+                    ELSE 4
+                END,
+                lifetime_value DESC,
+                last_contact_at DESC,
+                id ASC
+            LIMIT 1
+            """,
+            (settings.store_name,),
+        ).fetchone()
     return {
         "advisor_id": settings.advisor_id,
         "advisor_name": settings.advisor_name,
@@ -179,6 +198,7 @@ def get_bootstrap_payload() -> dict:
         "brand_name": settings.brand_name,
         "pending_task_count": pending,
         "quick_prompts": list(settings.quick_prompts),
+        "preview_customer_id": preview_customer_row["id"] if preview_customer_row else None,
     }
 
 

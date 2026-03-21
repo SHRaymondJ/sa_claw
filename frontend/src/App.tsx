@@ -40,14 +40,17 @@ const WELCOME_MESSAGE: ChatMessage = {
 }
 
 const MIN_RESPONSE_DELAY_MS = 520
-const EMPTY_STATE_CUSTOMER_ACTION: UIAction = {
-  action_type: 'open_customer',
-  label: '查看客户详情',
-  entity_type: 'customer',
-  entity_id: 'C001',
-  method: 'GET',
-  variant: 'secondary',
-  payload: {},
+
+function buildEmptyStateCustomerAction(customerId: string): UIAction {
+  return {
+    action_type: 'open_customer',
+    label: '查看客户详情',
+    entity_type: 'customer',
+    entity_id: customerId,
+    method: 'GET',
+    variant: 'secondary',
+    payload: {},
+  }
 }
 
 function buildSessionAction(sessionId: string): UIAction {
@@ -852,9 +855,13 @@ function WorkbenchPage() {
   const compactMetaLine = getWorkbenchMetaLine(bootstrap, false)
   const desktopMetaLine = getWorkbenchMetaLine(bootstrap, true)
   const showEmptyState = messages.length === 1 && !loading
+  const previewCustomerId = normalizeDisplayText(bootstrap?.preview_customer_id)
 
   async function openDefaultCustomerPreview() {
-    await handleAction(EMPTY_STATE_CUSTOMER_ACTION)
+    if (!previewCustomerId) {
+      return
+    }
+    await handleAction(buildEmptyStateCustomerAction(previewCustomerId))
   }
 
   return (
