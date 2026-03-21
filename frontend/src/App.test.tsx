@@ -91,8 +91,33 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText('缦序 导购席位')).toBeInTheDocument()
     })
-    expect(screen.getByText('今天优先跟进客户')).toBeInTheDocument()
+    expect(screen.getByText('帮我找重点客户')).toBeInTheDocument()
     expect(screen.getByTestId('composer-shell')).toBeVisible()
+  })
+
+  it('renders empty-state quick prompts from bootstrap instead of fixed demo labels', async () => {
+    vi.mocked(getBootstrap).mockResolvedValueOnce({
+      advisor_id: 'advisor-demo-001',
+      advisor_name: '林顾问',
+      store_id: 'store-sh-jingan',
+      store_name: '上海静安店',
+      brand_name: '缦序',
+      pending_task_count: 7,
+      quick_prompts: ['帮我找重点客户', '看看通勤西装'],
+    })
+
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('帮我找重点客户')).toBeInTheDocument()
+    })
+    expect(screen.getByText('看看通勤西装')).toBeInTheDocument()
+    expect(screen.queryByText('今天优先跟进客户')).not.toBeInTheDocument()
+    expect(screen.queryByText('通勤西装现货')).not.toBeInTheDocument()
   })
 
   it('does not fabricate demo brand or advisor labels when bootstrap fields are missing', async () => {

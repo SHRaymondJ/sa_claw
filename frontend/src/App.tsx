@@ -236,7 +236,7 @@ function EmptyWorkbenchState({
   onSelectPrompt: (prompt: string) => void
   onOpenCustomer: () => void
 }) {
-  const previewPrompts = ['今天优先跟进客户', '通勤西装现货']
+  const previewPrompts = prompts.slice(0, 2)
 
   if (isDesktop) {
     return (
@@ -269,18 +269,15 @@ function EmptyWorkbenchState({
         <div className="border border-[var(--line)] bg-[var(--paper)] px-3 py-3 text-[13px] leading-6 text-[var(--ink)]">
           直接说目标，我会整理客户、商品和下一步动作。
         </div>
-        <div className="flex gap-2">
-          {previewPrompts.map((prompt) => (
-            <button
-              key={prompt}
-              type="button"
-              className="flat-chip"
-              onClick={() => onSelectPrompt(prompt === '今天优先跟进客户' ? prompts[0] ?? prompt : prompts[1] ?? prompt)}
-            >
-              {prompt}
-            </button>
-          ))}
-        </div>
+        {previewPrompts.length > 0 ? (
+          <div className="flex gap-2">
+            {previewPrompts.map((prompt) => (
+              <button key={prompt} type="button" className="flat-chip" onClick={() => onSelectPrompt(prompt)}>
+                {prompt}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <button
           type="button"
           aria-label="查看推荐客户详情"
