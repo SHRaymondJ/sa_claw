@@ -172,7 +172,7 @@ def get_bootstrap_payload() -> dict:
             "SELECT COUNT(*) FROM follow_up_tasks WHERE status = 'open'"
         ).fetchone()[0]
         preview_customer_query = """
-        SELECT id
+        SELECT id, name, preferred_categories
         FROM customers
         {where_clause}
         ORDER BY
@@ -196,6 +196,27 @@ def get_bootstrap_payload() -> dict:
             preview_customer_row = connection.execute(
                 preview_customer_query.format(where_clause=""),
             ).fetchone()
+
+        quick_prompts = list(settings.quick_prompts)
+        if not quick_prompts:
+            preview_customer_name = (
+                str(preview_customer_row["name"]).strip() if preview_customer_row and preview_customer_row["name"] else ""
+            )
+            preview_categories = []
+            if preview_customer_row and preview_customer_row["preferred_categories"]:
+                try:
+                    preview_categories = json.loads(preview_customer_row["preferred_categories"])
+                except json.JSONDecodeError:
+                    preview_categories = []
+            first_category = str(preview_categories[0]).strip() if preview_categories else ""
+
+            quick_prompts = [
+                "帮我找今天该优先跟进的客户",
+                f"看看{preview_customer_name}最近适合怎么跟进" if preview_customer_name else "",
+                f"给{preview_customer_name}推荐几件{first_category}" if preview_customer_name and first_category else "",
+                "把今天到期还没完成的回访任务按优先级排一下" if pending else "看看现在有哪些品类",
+            ]
+            quick_prompts = _dedupe_preserve_order(quick_prompts)[:3]
     return {
         "advisor_id": settings.advisor_id,
         "advisor_name": settings.advisor_name,
@@ -203,7 +224,7 @@ def get_bootstrap_payload() -> dict:
         "store_name": settings.store_name,
         "brand_name": settings.brand_name,
         "pending_task_count": pending,
-        "quick_prompts": list(settings.quick_prompts),
+        "quick_prompts": quick_prompts,
         "preview_customer_id": preview_customer_row["id"] if preview_customer_row else None,
     }
 

@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from app.config import get_app_settings
 from app.db import get_connection, init_db
 from app.main import app
-from app.services.crm_service import RESPONSE_CACHE
+from app.services.crm_service import RESPONSE_CACHE, get_bootstrap_payload
 
 
 os.environ["MODEL_PROVIDER"] = "mock"
@@ -61,6 +61,28 @@ def test_runtime_identity_defaults_are_neutral(monkeypatch) -> None:
     assert settings.store_name == ""
     assert settings.advisor_id == "advisor-default"
     assert settings.store_id == "store-default"
+
+
+def test_bootstrap_generates_dynamic_quick_prompts_when_env_is_empty(monkeypatch) -> None:
+    monkeypatch.delenv("CRM_QUICK_PROMPTS", raising=False)
+
+    payload = get_bootstrap_payload()
+    with get_connection() as connection:
+        preview_customer = connection.execute(
+            "SELECT name FROM customers WHERE id = ?",
+            (payload["preview_customer_id"],),
+        ).fetchone()
+
+    assert len(payload["quick_prompts"]) == 3
+    assert any("优先跟进" in prompt for prompt in payload["quick_prompts"])
+    assert preview_customer is not None
+    assert any(str(preview_customer["name"]) in prompt for prompt in payload["quick_prompts"])
+    assert any(
+        prompt == "把今天到期还没完成的回访任务按优先级排一下"
+        or prompt == "看看现在有哪些品类"
+        or prompt.startswith(f"给{preview_customer['name']}推荐几件")
+        for prompt in payload["quick_prompts"]
+    )
 
 
 def test_chat_endpoint_respects_configured_rate_limit(monkeypatch) -> None:

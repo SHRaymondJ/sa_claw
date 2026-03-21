@@ -119,11 +119,6 @@ def get_model_settings() -> ModelSettings:
 
 
 def get_app_settings() -> AppSettings:
-    default_prompts = (
-        "帮我找今天该优先跟进但还没联系的高净值客户",
-        "给偏好通勤西装的客户挑 3 款本周有货的单品",
-        "把今天到期还没完成的回访任务按优先级排一下",
-    )
     return AppSettings(
         db_path=Path(os.getenv("CRM_DB_PATH", BASE_DIR / "data" / "crm_demo.sqlite3")),
         frontend_dist=BASE_DIR / "frontend" / "dist",
@@ -143,5 +138,5 @@ def get_app_settings() -> AppSettings:
         chat_rate_window_seconds=_get_int_env("CRM_CHAT_RATE_WINDOW_SECONDS", 60, minimum=1, maximum=3600),
         mutation_rate_limit=_get_int_env("CRM_MUTATION_RATE_LIMIT", 60, minimum=1, maximum=1000),
         mutation_rate_window_seconds=_get_int_env("CRM_MUTATION_RATE_WINDOW_SECONDS", 60, minimum=1, maximum=3600),
-        quick_prompts=_parse_prompt_list(os.getenv("CRM_QUICK_PROMPTS", ""), default_prompts),
+        quick_prompts=_parse_prompt_list(os.getenv("CRM_QUICK_PROMPTS", ""), ()),
     )
