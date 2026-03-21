@@ -171,25 +171,31 @@ def get_bootstrap_payload() -> dict:
         pending = connection.execute(
             "SELECT COUNT(*) FROM follow_up_tasks WHERE status = 'open'"
         ).fetchone()[0]
-        preview_customer_row = connection.execute(
-            """
-            SELECT id
-            FROM customers
-            WHERE store_name = ?
-            ORDER BY
-                CASE tier
-                    WHEN '黑金' THEN 1
-                    WHEN '高潜' THEN 2
-                    WHEN '重点' THEN 3
-                    ELSE 4
-                END,
-                lifetime_value DESC,
-                last_contact_at DESC,
-                id ASC
-            LIMIT 1
-            """,
-            (settings.store_name,),
-        ).fetchone()
+        preview_customer_query = """
+        SELECT id
+        FROM customers
+        {where_clause}
+        ORDER BY
+            CASE tier
+                WHEN '黑金' THEN 1
+                WHEN '高潜' THEN 2
+                WHEN '重点' THEN 3
+                ELSE 4
+            END,
+            lifetime_value DESC,
+            last_contact_at DESC,
+            id ASC
+        LIMIT 1
+        """
+        if settings.store_name.strip():
+            preview_customer_row = connection.execute(
+                preview_customer_query.format(where_clause="WHERE store_name = ?"),
+                (settings.store_name,),
+            ).fetchone()
+        else:
+            preview_customer_row = connection.execute(
+                preview_customer_query.format(where_clause=""),
+            ).fetchone()
     return {
         "advisor_id": settings.advisor_id,
         "advisor_name": settings.advisor_name,
@@ -2155,7 +2161,7 @@ def complete_task(task_id: str, *, actor: RequestActor) -> TaskCompleteResponse:
         )
         if row is None:
             raise KeyError(task_id)
-        if str(row["store_name"]) != settings.store_name:
+        if settings.store_name.strip() and str(row["store_name"]) != settings.store_name:
             raise KeyError(task_id)
 
         previous_status = str(row["status"])

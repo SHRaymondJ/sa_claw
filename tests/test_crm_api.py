@@ -3,6 +3,7 @@ import json
 
 from fastapi.testclient import TestClient
 
+from app.config import get_app_settings
 from app.db import get_connection, init_db
 from app.main import app
 from app.services.crm_service import RESPONSE_CACHE
@@ -13,9 +14,10 @@ os.environ["MODEL_API_KEY"] = ""
 
 init_db()
 client = TestClient(app)
+SETTINGS = get_app_settings()
 AUTH_HEADERS = {
-    "X-Advisor-Id": "advisor-demo-001",
-    "X-Store-Id": "store-sh-jingan",
+    "X-Advisor-Id": SETTINGS.advisor_id,
+    "X-Store-Id": SETTINGS.store_id,
 }
 
 
@@ -29,7 +31,7 @@ def test_bootstrap_and_chat_flow() -> None:
     bootstrap_response = client.get("/api/crm/bootstrap")
     assert bootstrap_response.status_code == 200
     payload = bootstrap_response.json()
-    assert payload["advisor_name"]
+    assert "advisor_name" in payload
     assert payload["pending_task_count"] >= 0
     assert payload["preview_customer_id"]
 
@@ -45,13 +47,29 @@ def test_bootstrap_and_chat_flow() -> None:
     assert "message_draft" not in component_types
 
 
+def test_runtime_identity_defaults_are_neutral(monkeypatch) -> None:
+    monkeypatch.delenv("CRM_BRAND_NAME", raising=False)
+    monkeypatch.delenv("CRM_ADVISOR_NAME", raising=False)
+    monkeypatch.delenv("CRM_STORE_NAME", raising=False)
+    monkeypatch.delenv("CRM_ADVISOR_ID", raising=False)
+    monkeypatch.delenv("CRM_STORE_ID", raising=False)
+
+    settings = get_app_settings()
+
+    assert settings.brand_name == ""
+    assert settings.advisor_name == ""
+    assert settings.store_name == ""
+    assert settings.advisor_id == "advisor-default"
+    assert settings.store_id == "store-default"
+
+
 def test_chat_endpoint_respects_configured_rate_limit(monkeypatch) -> None:
     monkeypatch.setenv("CRM_CHAT_RATE_LIMIT", "2")
     monkeypatch.setenv("CRM_CHAT_RATE_WINDOW_SECONDS", "60")
 
     headers = {
         "X-Advisor-Id": "advisor-rate-limit-case",
-        "X-Store-Id": "store-sh-jingan",
+        "X-Store-Id": SETTINGS.store_id,
     }
     payload = {
         "session_id": "session-rate-limit-case",
@@ -74,7 +92,7 @@ def test_mutation_endpoint_respects_configured_rate_limit(monkeypatch) -> None:
 
     headers = {
         "X-Advisor-Id": "advisor-mutation-rate-limit-case",
-        "X-Store-Id": "store-sh-jingan",
+        "X-Store-Id": SETTINGS.store_id,
     }
 
     first = client.post("/api/crm/tasks/T404-A/complete", headers=headers)

@@ -17,7 +17,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="缦序导购工作台", lifespan=lifespan)
+app = FastAPI(title="导购工作台", lifespan=lifespan)
 app.include_router(crm_router)
 
 

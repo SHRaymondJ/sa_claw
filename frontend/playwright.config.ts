@@ -8,7 +8,8 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'cd .. && MODEL_PROVIDER=mock ./.venv/bin/python -m uvicorn app.main:app --port 8023',
+    command:
+      "cd .. && CRM_BRAND_NAME='' CRM_ADVISOR_NAME='' CRM_STORE_NAME='' MODEL_PROVIDER=mock ./.venv/bin/python -m uvicorn app.main:app --port 8023",
     url: 'http://127.0.0.1:8023/health',
     reuseExistingServer: false,
   },

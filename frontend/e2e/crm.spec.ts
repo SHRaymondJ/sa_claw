@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 test('can run guided customer workflow and open detail', async ({ page }, testInfo) => {
   if (testInfo.project.name === 'mobile') {
     await page.goto('/crm')
-    await expect(page.getByText('缦序 导购席位')).toBeVisible()
+    await expect(page.getByText('导购席位')).toBeVisible()
     await page.getByRole('button', { name: '帮我找今天该优先跟进但还没联系的高净值客户' }).click()
     await expect(page.getByText('正在整理本次客户建议')).toBeVisible()
     await expect(page.getByText('建议优先跟进客户')).toBeVisible()
