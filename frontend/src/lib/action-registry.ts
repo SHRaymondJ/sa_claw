@@ -155,6 +155,8 @@ const handlers: Record<string, ActionHandler> = {
   },
 }
 
+export const registeredActionTypes = Object.freeze(Object.keys(handlers))
+
 export async function dispatchAction(action: UIAction, context: ActionContext): Promise<void> {
   const handler = handlers[action.action_type]
   if (!handler) {
